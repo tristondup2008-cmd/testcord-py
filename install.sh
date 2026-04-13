@@ -1,6 +1,6 @@
 #!/bin/bash
 
-SCRIPT_VERSION="3.3.9"
+SCRIPT_VERSION="3.3.10"
 UPDATE_AVAILABLE=false
 DIR_REMNAWAVE="/usr/local/remnawave_auto/"
 # Installed launcher (replaces upstream remnawave_reverse / rr): this file + symlink in /usr/local/bin
@@ -331,7 +331,7 @@ set_language() {
                 [FLEET_ADD_USER]="SSH user (root recommended):"
                 [FLEET_ADD_HOST]="Host IP or hostname:"
                 [FLEET_ADD_PORT]="SSH port [22]:"
-                [FLEET_ADD_AUTH]="Auth: 1) SSH vault key index  2) Password (ask each time)"
+                [FLEET_ADD_AUTH]="Auth: 1) SSH vault key index  2) Password (saved on this host for fleet)"
                 [FLEET_SAVED]="Server saved."
                 [FLEET_REMOVED]="Removed."
                 [FLEET_PICK_NUM]="Server number:"
@@ -883,7 +883,7 @@ set_language() {
                 [FLEET_ADD_USER]="Пользователь SSH (желательно root):"
                 [FLEET_ADD_HOST]="IP или hostname:"
                 [FLEET_ADD_PORT]="Порт SSH [22]:"
-                [FLEET_ADD_AUTH]="Авторизация: 1) ключ из vault (номер)  2) пароль (спрашивать каждый раз)"
+                [FLEET_ADD_AUTH]="Авторизация: 1) ключ из vault (номер)  2) пароль (сохраняется на этой машине для флота)"
                 [FLEET_SAVED]="Сервер сохранён."
                 [FLEET_REMOVED]="Удалено."
                 [FLEET_PICK_NUM]="Номер сервера:"
@@ -6579,21 +6579,34 @@ fleet_nonblank_count() {
     grep -cve '^[[:space:]]*$' "$FLEET_SERVERS_FILE" 2>/dev/null || echo 0
 }
 
+# Returns the Nth non-empty fleet row (same numbering as list / pick / remove — not raw file line number).
 fleet_get_line() {
-    sed -n "${1}p" "$FLEET_SERVERS_FILE"
+    local want="${1:-0}" idx=0
+    [[ "$want" =~ ^[0-9]+$ ]] && [[ "$want" -ge 1 ]] || return 1
+    [[ -f "$FLEET_SERVERS_FILE" ]] || return 1
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        [[ -z "${line//[$' \t']/}" ]] && continue
+        idx=$((idx + 1))
+        if [[ "$idx" -eq "$want" ]]; then
+            printf '%s' "${line//$'\r'/}"
+            return 0
+        fi
+    done <"$FLEET_SERVERS_FILE"
+    return 1
 }
 
+# One-line base64 only (default GNU base64 wraps at 76 cols and would break the |field| format).
 fleet_password_to_b64() {
-    if ! printf '%s' "$1" | base64 -w0 2>/dev/null; then
-        printf '%s' "$1" | base64 | tr -d '\n'
-    fi
+    printf '%s' "$1" | base64 | tr -d '\n\r'
 }
 
 # Decodes optional 6th field (base64) when auth is p; stdout = plaintext password.
 fleet_get_saved_password_from_line() {
-    local line="$1" pw_b64
+    local line="${1//$'\r'/}" pw_b64 _auth
     [[ -z "${line//[$' \t']/}" ]] && return 1
     IFS='|' read -r _lbl _user _host _port _auth pw_b64 <<<"$line"
+    _auth="${_auth//$'\r'/}"
+    pw_b64="${pw_b64//$'\r'/}"
     [[ "$_auth" == "p" ]] || return 1
     [[ -n "${pw_b64//[$' \t\r\n']}" ]] || return 1
     printf '%s' "$pw_b64" | base64 -d 2>/dev/null || return 1
@@ -6644,7 +6657,9 @@ fleet_change_password_interactive() {
     reading "${LANG[FLEET_PICK_NUM]}" m
     [[ "$m" =~ ^[0-9]+$ ]] && [[ "$m" -ge 1 ]] && [[ "$m" -le "$tot" ]] || return 1
     line=$(fleet_get_line "$m")
+    line="${line//$'\r'/}"
     IFS='|' read -r _a _b _c _d auth _rest <<<"$line"
+    auth="${auth//$'\r'/}"
     [[ "$auth" == "p" ]] || {
         echo -e "${COLOR_RED}${LANG[FLEET_PASS_ONLY_P]}${COLOR_RESET}"
         return 1
@@ -6680,7 +6695,12 @@ fleet_run_ssh_script() {
     local line _lbl _user _host _port _auth
     line=$(fleet_get_line "$line_num")
     [[ -z "${line//[$' \t']/}" ]] && return 1
+    line="${line//$'\r'/}"
     IFS='|' read -r _lbl _user _host _port _auth _pw_b64 <<<"$line"
+    _auth="${_auth//$'\r'/}"
+    _user="${_user//$'\r'/}"
+    _host="${_host//$'\r'/}"
+    _port="${_port//$'\r'/}"
     [[ -z "$_user" || -z "$_host" ]] && return 1
     [[ -z "$_port" ]] && _port=22
     local -a base=(ssh -p "$_port" -o ConnectTimeout=25 -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile="${DIR_REMNAWAVE}fleet_known_hosts")
@@ -6715,7 +6735,12 @@ fleet_run_ssh_stdout() {
     local line _lbl _user _host _port _auth
     line=$(fleet_get_line "$line_num")
     [[ -z "${line//[$' \t']/}" ]] && return 1
+    line="${line//$'\r'/}"
     IFS='|' read -r _lbl _user _host _port _auth _pw_b64 <<<"$line"
+    _auth="${_auth//$'\r'/}"
+    _user="${_user//$'\r'/}"
+    _host="${_host//$'\r'/}"
+    _port="${_port//$'\r'/}"
     [[ -z "$_user" || -z "$_host" ]] && return 1
     [[ -z "$_port" ]] && _port=22
     local -a base=(ssh -p "$_port" -o ConnectTimeout=25 -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile="${DIR_REMNAWAVE}fleet_known_hosts")
@@ -6747,7 +6772,12 @@ fleet_run_ssh_tty() {
     local line _lbl _user _host _port _auth
     line=$(fleet_get_line "$line_num")
     [[ -z "${line//[$' \t']/}" ]] && return 1
+    line="${line//$'\r'/}"
     IFS='|' read -r _lbl _user _host _port _auth _pw_b64 <<<"$line"
+    _auth="${_auth//$'\r'/}"
+    _user="${_user//$'\r'/}"
+    _host="${_host//$'\r'/}"
+    _port="${_port//$'\r'/}"
     [[ -z "$_user" || -z "$_host" ]] && return 1
     [[ -z "$_port" ]] && _port=22
     local -a base=(ssh -tt -p "$_port" -o ConnectTimeout=25 -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile="${DIR_REMNAWAVE}fleet_known_hosts")
