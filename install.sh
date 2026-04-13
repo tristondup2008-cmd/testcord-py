@@ -5975,9 +5975,15 @@ remote_install_docker_prereqs() {
     set -e
     export DEBIAN_FRONTEND=noninteractive
     remote_apt_wait_unlock() {
+        local waited=0
         while pgrep -x apt >/dev/null 2>&1 || pgrep -x apt-get >/dev/null 2>&1 || pgrep -x dpkg >/dev/null 2>&1 || pgrep -f unattended-upgrade >/dev/null 2>&1; do
-            echo "apt/dpkg lock is busy, waiting..."
+            echo "apt/dpkg lock is busy, waiting (${waited}s)..."
             sleep 3
+            waited=$((waited + 3))
+            if [ "$waited" -ge 300 ]; then
+                echo "apt/dpkg lock still busy after ${waited}s; trying apt-get anyway."
+                break
+            fi
         done
     }
     remote_apt_retry() {
@@ -6142,8 +6148,15 @@ manage_auto_remote_node() {
     if ! run_remote "${LANG[AUTO_NODE_REMOTE_APT_DESC]}" "$(printf '%s\n' \
         'export DEBIAN_FRONTEND=noninteractive' \
         'for i in $(seq 1 20); do' \
-        '  while pgrep -x apt >/dev/null 2>&1 || pgrep -x apt-get >/dev/null 2>&1 || pgrep -x dpkg >/dev/null 2>&1 || pgrep -f unattended-upgrade >/dev/null 2>&1; do sleep 3; done' \
+        '  waited=0' \
+        '  while pgrep -x apt >/dev/null 2>&1 || pgrep -x apt-get >/dev/null 2>&1 || pgrep -x dpkg >/dev/null 2>&1 || pgrep -f unattended-upgrade >/dev/null 2>&1; do' \
+        '    echo "apt/dpkg lock busy before apt-get update (${waited}s), waiting..."' \
+        '    sleep 3' \
+        '    waited=$((waited + 3))' \
+        '    [ "$waited" -ge 300 ] && echo "lock still busy after ${waited}s; trying apt-get update anyway." && break' \
+        '  done' \
         '  apt-get update -y && exit 0' \
+        '  echo "apt-get update failed on attempt $i/20; retrying..."' \
         '  sleep 6' \
         'done' \
         'exit 1')"; then return 1; fi
@@ -6151,8 +6164,15 @@ manage_auto_remote_node() {
     if ! run_remote "ufw fail2ban" "$(printf '%s\n' \
         'export DEBIAN_FRONTEND=noninteractive' \
         'for i in $(seq 1 20); do' \
-        '  while pgrep -x apt >/dev/null 2>&1 || pgrep -x apt-get >/dev/null 2>&1 || pgrep -x dpkg >/dev/null 2>&1 || pgrep -f unattended-upgrade >/dev/null 2>&1; do sleep 3; done' \
+        '  waited=0' \
+        '  while pgrep -x apt >/dev/null 2>&1 || pgrep -x apt-get >/dev/null 2>&1 || pgrep -x dpkg >/dev/null 2>&1 || pgrep -f unattended-upgrade >/dev/null 2>&1; do' \
+        '    echo "apt/dpkg lock busy before apt-get install (${waited}s), waiting..."' \
+        '    sleep 3' \
+        '    waited=$((waited + 3))' \
+        '    [ "$waited" -ge 300 ] && echo "lock still busy after ${waited}s; trying apt-get install anyway." && break' \
+        '  done' \
         '  apt-get install -y ufw fail2ban && exit 0' \
+        '  echo "apt-get install failed on attempt $i/20; retrying..."' \
         '  sleep 6' \
         'done' \
         'exit 1')"; then return 1; fi
