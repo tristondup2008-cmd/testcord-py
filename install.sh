@@ -1,6 +1,6 @@
 #!/bin/bash
 
-SCRIPT_VERSION="3.3.34"
+SCRIPT_VERSION="3.3.35"
 UPDATE_AVAILABLE=false
 DIR_REMNAWAVE="/usr/local/remnawave_auto/"
 # Installed launcher (replaces upstream remnawave_reverse / rr): this file + symlink in /usr/local/bin
@@ -5929,11 +5929,11 @@ remote_apply_bbr_cake() {
 }
 
 remote_traffic_guard_base() {
-    curl -fsSL https://raw.githubusercontent.com/tristondup2008-cmd/traffic-guard/master/install.sh | bash
+    curl -fsSL https://raw.githubusercontent.com/dotX12/traffic-guard/master/install.sh | bash
 }
 
 remote_traffic_guard_full() {
-    command -v traffic-guard >/dev/null 2>&1 || curl -fsSL https://raw.githubusercontent.com/tristondup2008-cmd/traffic-guard/master/install.sh | bash
+    command -v traffic-guard >/dev/null 2>&1 || curl -fsSL https://raw.githubusercontent.com/dotX12/traffic-guard/master/install.sh | bash
     traffic-guard full -u https://raw.githubusercontent.com/shadow-netlab/traffic-guard-lists/refs/heads/main/public/antiscanner.list -u https://raw.githubusercontent.com/shadow-netlab/traffic-guard-lists/26929c9db71443a18c4369299ba60673a792c2ac/public/government_networks.list -u https://raw.githubusercontent.com/shadow-netlab/traffic-guard-lists/refs/heads/main/public/skipa.list --enable-logging
 }
 
@@ -6144,7 +6144,7 @@ manage_auto_remote_node() {
         'systemctl stop apt-daily.service apt-daily-upgrade.service unattended-upgrades.service 2>/dev/null || true' \
         'systemctl stop apt-daily.timer apt-daily-upgrade.timer 2>/dev/null || true' \
         'apt-get -o DPkg::Lock::Timeout=120 update -y || { dpkg --configure -a || true; apt-get -o DPkg::Lock::Timeout=120 -f install -y || true; apt-get -o DPkg::Lock::Timeout=120 update -y; }')"; then return 1; fi
-    if ! run_remote "traffic-guard" "$(printf '%s\n' 'curl -fsSL https://raw.githubusercontent.com/tristondup2008-cmd/traffic-guard/master/install.sh | bash')"; then return 1; fi
+    if ! run_remote "traffic-guard" "$(printf '%s\n' 'curl -fsSL https://raw.githubusercontent.com/dotX12/traffic-guard/master/install.sh | bash')"; then return 1; fi
     if ! run_remote "ufw fail2ban" "$(printf '%s\n' \
         'export DEBIAN_FRONTEND=noninteractive' \
         'systemctl stop apt-daily.service apt-daily-upgrade.service unattended-upgrades.service 2>/dev/null || true' \
