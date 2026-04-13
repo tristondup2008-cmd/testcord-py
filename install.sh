@@ -5933,8 +5933,8 @@ remote_traffic_guard_base() {
 }
 
 remote_traffic_guard_full() {
-    command -v traffic-guard >/dev/null 2>&1 || curl -fsSL https://raw.githubusercontent.com/tristondup2008-cmd/traffic-guard/master/install.sh | bash
-    traffic-guard full -u https://raw.githubusercontent.com/tristondup2008-cmd/traffic-guard/refs/heads/master/antiscanner.list.txt -u https://raw.githubusercontent.com/tristondup2008-cmd/traffic-guard/refs/heads/master/government_networks.list.txt -u https://raw.githubusercontent.com/tristondup2008-cmd/traffic-guard/refs/heads/master/skipa.list.txt --enable-logging
+    command -v traffic-guard >/dev/null 2>&1 || curl -fsSL https://raw.githubusercontent.com/dotX12/traffic-guard/master/install.sh | bash
+    traffic-guard full -u https://raw.githubusercontent.com/shadow-netlab/traffic-guard-lists/refs/heads/main/public/antiscanner.list -u https://raw.githubusercontent.com/shadow-netlab/traffic-guard-lists/26929c9db71443a18c4369299ba60673a792c2ac/public/government_networks.list -u https://raw.githubusercontent.com/shadow-netlab/traffic-guard-lists/refs/heads/main/public/skipa.list --enable-logging
 }
 
 detect_panel_public_ipv4() {
@@ -6121,10 +6121,10 @@ manage_auto_remote_node() {
     fi
 
     if ! run_remote "${LANG[AUTO_NODE_REMOTE_APT_DESC]}" "$(printf '%s\n' 'export DEBIAN_FRONTEND=noninteractive' 'apt-get update -y')"; then return 1; fi
-    if ! run_remote "traffic-guard" "$(printf '%s\n' 'curl -fsSL https://raw.githubusercontent.com/tristondup2008-cmd/traffic-guard/master/install.sh | bash')"; then return 1; fi
+    if ! run_remote "traffic-guard" "$(printf '%s\n' 'curl -fsSL https://raw.githubusercontent.com/dotX12/traffic-guard/master/install.sh | bash')"; then return 1; fi
     if ! run_remote "ufw fail2ban" "$(printf '%s\n' 'export DEBIAN_FRONTEND=noninteractive' 'apt-get install -y ufw fail2ban')"; then return 1; fi
     if ! run_remote "ufw rules" "$(printf '%s\n' 'ufw allow 22/tcp || true' 'ufw allow 80/tcp || true' 'ufw allow 443/tcp || true')"; then return 1; fi
-    if ! run_remote "traffic-guard full" "traffic-guard full -u https://raw.githubusercontent.com/tristondup2008-cmd/traffic-guard/refs/heads/master/antiscanner.list.txt -u https://raw.githubusercontent.com/tristondup2008-cmd/traffic-guard/refs/heads/master/government_networks.list.txt -u https://raw.githubusercontent.com/tristondup2008-cmd/traffic-guard/refs/heads/master/skipa.list.txt --enable-logging"; then return 1; fi
+    if ! run_remote "traffic-guard full" "traffic-guard full -u https://raw.githubusercontent.com/shadow-netlab/traffic-guard-lists/refs/heads/main/public/antiscanner.list -u https://raw.githubusercontent.com/shadow-netlab/traffic-guard-lists/26929c9db71443a18c4369299ba60673a792c2ac/public/government_networks.list -u https://raw.githubusercontent.com/shadow-netlab/traffic-guard-lists/refs/heads/main/public/skipa.list --enable-logging"; then return 1; fi
     auto_ssh "ufw status verbose" || true
 
     if ! run_remote "disable IPv6" "$(declare -f remote_disable_ipv6; echo remote_disable_ipv6)"; then return 1; fi
