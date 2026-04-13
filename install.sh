@@ -1,6 +1,6 @@
 #!/bin/bash
 
-SCRIPT_VERSION="3.3.5"
+SCRIPT_VERSION="3.3.8"
 UPDATE_AVAILABLE=false
 DIR_REMNAWAVE="/usr/local/remnawave_auto/"
 # Installed launcher (replaces upstream remnawave_reverse / rr): this file + symlink in /usr/local/bin
@@ -21,6 +21,56 @@ COLOR_YELLOW="\033[1;33m"
 COLOR_WHITE="\033[1;37m"
 COLOR_RED="\033[1;31m"
 COLOR_GRAY='\033[0;90m'
+
+# Returns 0 if v1 sorts strictly before v2 (v2 is newer); empty versions are not "less than".
+script_version_less_than() {
+    local v1="$1" v2="$2"
+    [[ -n "$v1" && -n "$v2" ]] || return 1
+    local v1_num="${v1//[^0-9.]/}"
+    local v2_num="${v2//[^0-9.]/}"
+    local v1_sfx="${v1//$v1_num/}"
+    local v2_sfx="${v2//$v2_num/}"
+    if [[ "$v1_num" == "$v2_num" ]]; then
+        if [[ -z "$v1_sfx" && -n "$v2_sfx" ]]; then
+            return 0
+        elif [[ -n "$v1_sfx" && -z "$v2_sfx" ]]; then
+            return 1
+        elif [[ "$v1_sfx" < "$v2_sfx" ]]; then
+            return 0
+        else
+            return 1
+        fi
+    else
+        if printf '%s\n' "$v1_num" "$v2_num" | sort -V | head -n1 | grep -qx "$v1_num"; then
+            return 0
+        else
+            return 1
+        fi
+    fi
+}
+
+script_read_version_from_file() {
+    local f="$1" v
+    [[ -f "$f" ]] || { echo ""; return 1; }
+    v=$(grep -m1 '^SCRIPT_VERSION=' "$f" 2>/dev/null | sed -E 's/^SCRIPT_VERSION="([^"]+)".*/\1/') || true
+    if [[ -n "$v" && "$v" != *SCRIPT_VERSION* ]]; then
+        printf '%s' "$v"
+    else
+        echo ""
+    fi
+}
+
+# If installed copy on disk is newer than this running process, re-exec (e.g. after SFTP upload).
+maybe_reexec_installed_script_if_disk_newer() {
+    local disk_ver rf="$SCRIPT_INSTALL_PATH"
+    [[ -f "$rf" ]] || return 0
+    disk_ver=$(script_read_version_from_file "$rf")
+    [[ -n "$disk_ver" && -n "$SCRIPT_VERSION" && "$disk_ver" != "$SCRIPT_VERSION" ]] || return 0
+    if script_version_less_than "$SCRIPT_VERSION" "$disk_ver"; then
+        printf "${COLOR_YELLOW}${LANG[SCRIPT_REEXEC_DISK]}${COLOR_RESET}\n" "$disk_ver" "$SCRIPT_VERSION" "$rf" >&2
+        exec bash "$rf"
+    fi
+}
 
 load_language() {
     if [ -f "$LANG_FILE" ]; then
@@ -90,6 +140,8 @@ set_language() {
 				[AVAILABLE_UPDATE]="update available"
                 [VERSION_LABEL]="Version: %s"
                 [UPDATE_HINT]="A newer install script is available on GitHub (check SCRIPT_URL)."
+                [SCRIPT_REEXEC_DISK]="Newer script on disk (v%s) than this session (v%s). Reloading from %s."
+                [SCRIPT_SYNCED_RESTART]="Script updated from GitHub to v%s. Reloading."
                 [EXIT]="Exit"
                 [MENU_1]="Install Remnawave Components"
                 [MENU_2]="Reinstall panel/node"
@@ -183,7 +235,10 @@ set_language() {
                 [SSH_MENU_INVALID]="Invalid choice. Select 0-4."
                 [SSH_VAULT_EMPTY]="No SSH keys in vault. Add a key in the main menu (Manage SSH keys)."
                 [SSH_ENTER_NAME]="Key name (label):"
-                [SSH_ENTER_KEY_PATH]="Full path to private key file on this server:"
+                [SSH_ENTER_KEY_PATH]="Full path to private key on this server, OR the first line of the PEM (-----BEGIN ...):"
+                [SSH_PASTE_REST]="Paste the rest of the key, one line at a time, until the line with -----END ... PRIVATE KEY-----"
+                [SSH_ERR_PUTTY]="This looks like a PuTTY .ppk file. Install: apt-get install -y putty-tools"
+                [SSH_ERR_PUTTYGEN]="puttygen failed to convert .ppk to OpenSSH format."
                 [SSH_SAVED]="Key saved."
                 [SSH_ERR_NO_SSH_KEYGEN]="ssh-keygen not found. Install: apt-get install -y openssh-client"
                 [SSH_ERR_PATH_EMPTY]="Path is empty."
@@ -259,7 +314,19 @@ set_language() {
                 [FLEET_MENU_SERVER_ACTIONS]="Per-server actions (pick number first)"
                 [FLEET_MENU_REBOOT_ALL]="Reboot ALL servers now"
                 [FLEET_MENU_DIST_ALL]="dist-upgrade on ALL servers"
+                [FLEET_MENU_PASS]="Set / change saved SSH password (password-auth servers only)"
                 [FLEET_MENU_PROMPT]="Choice (0 = back):"
+                [FLEET_PASS_STORAGE_WARN]="Saved passwords are stored only as base64 on this machine (${DIR_REMNAWAVE}fleet_servers, chmod 600), not encrypted. Anyone with root here can read them."
+                [FLEET_PASS_ONLY_P]="This server is not using password auth (expected auth field \"p\")."
+                [FLEET_PASS_SET_NEW]="Set new saved password"
+                [FLEET_PASS_CLEAR]="Clear saved password (ask every time)"
+                [FLEET_PASS_SUBPROMPT]="Action (0 = cancel):"
+                [FLEET_PASS_NEW_PROMPT]="New SSH password for this server:"
+                [FLEET_PASS_UPDATED]="Saved password updated."
+                [FLEET_PASS_CLEARED]="Saved password removed; you will be prompted on each SSH."
+                [FLEET_PASS_NONEMPTY]="Password cannot be empty."
+                [FLEET_ADD_SSH_PASS]="SSH password (stored on this panel for fleet SSH; leave empty to ask every time):"
+                [FLEET_ADD_SSH_PASS_EMPTY]="(empty = do not save, prompt each connection)"
                 [FLEET_EMPTY]="No servers in fleet. Add one first."
                 [FLEET_ADD_NAME]="Server label:"
                 [FLEET_ADD_USER]="SSH user (root recommended):"
@@ -294,6 +361,14 @@ set_language() {
                 [FLEET_DIST_ALL_WARN]="Run dist-upgrade on ALL fleet servers? (y/n):"
                 [FLEET_SHELL_HINT]="Remote shell — type exit or Ctrl+D to return to the menu."
                 [FLEET_APPLY_BBR_CONFIRM]="Apply BBR + CAKE on this server? (y/n):"
+                [FLEET_BBR_ALREADY]="BBR + CAKE already active (tcp=bbr, default_qdisc includes cake)."
+                [FLEET_BBR_REAPPLY_YN]="Re-apply BBR + CAKE in sysctl anyway? (y/n):"
+                [FLEET_IPV6_STATE_LINE]="net.ipv6.conf.all.disable_ipv6=%s (1 = IPv6 off, 0 = on)"
+                [FLEET_IPV6_OFF_HINT]="IPv6 is off. You can enable it below; disable is not needed."
+                [FLEET_IPV6_ON_HINT]="IPv6 is on. You can disable it below; enable is not needed."
+                [FLEET_IPV6_ENABLE_YN]="Enable IPv6 on this server? (y/n):"
+                [FLEET_IPV6_DISABLE_YN]="Disable IPv6 on this server? (y/n):"
+                [FLEET_IPV6_FALLBACK]="Could not read state. 1) disable IPv6  2) enable  0) cancel:"
                 [FLEET_IPV6_SUB]="IPv6 action (1 = disable, 2 = enable):"
                 [FLEET_REBOOT_ONE]="Confirm reboot this server? (y/n):"
                 #Manage IPv6
@@ -599,6 +674,8 @@ set_language() {
 				[AVAILABLE_UPDATE]="доступно обновление"
                 [VERSION_LABEL]="Версия: %s"
                 [UPDATE_HINT]="На GitHub доступна более новая версия скрипта (см. SCRIPT_URL)."
+                [SCRIPT_REEXEC_DISK]="На диске новее (v%s), чем в этой сессии (v%s). Перезапуск из %s."
+                [SCRIPT_SYNCED_RESTART]="Скрипт обновлён с GitHub до v%s. Перезапуск."
                 #Install Packages
                 [ERROR_UPDATE_LIST]="Ошибка: Не удалось обновить список пакетов"
                 [ERROR_INSTALL_PACKAGES]="Ошибка: Не удалось установить необходимые пакеты"
@@ -711,7 +788,10 @@ set_language() {
                 [SSH_MENU_INVALID]="Неверный выбор. Выберите 0-4."
                 [SSH_VAULT_EMPTY]="В хранилище нет SSH-ключей. Добавьте ключ: главное меню → Управление SSH-ключами."
                 [SSH_ENTER_NAME]="Имя (метка) ключа:"
-                [SSH_ENTER_KEY_PATH]="Полный путь к файлу приватного ключа на этом сервере:"
+                [SSH_ENTER_KEY_PATH]="Путь к приватному ключу на сервере или первая строка PEM (-----BEGIN ...):"
+                [SSH_PASTE_REST]="Вставьте остальные строки ключа по одной, до строки -----END ... PRIVATE KEY-----"
+                [SSH_ERR_PUTTY]="Похоже на PuTTY .ppk. Установите: apt-get install -y putty-tools"
+                [SSH_ERR_PUTTYGEN]="puttygen не смог перевести .ppk в формат OpenSSH."
                 [SSH_SAVED]="Ключ сохранён."
                 [SSH_ERR_NO_SSH_KEYGEN]="Не найден ssh-keygen. Установите: apt-get install -y openssh-client"
                 [SSH_ERR_PATH_EMPTY]="Путь пустой."
@@ -787,7 +867,19 @@ set_language() {
                 [FLEET_MENU_SERVER_ACTIONS]="Действия с сервером (сначала номер)"
                 [FLEET_MENU_REBOOT_ALL]="Перезагрузить ВСЕ серверы"
                 [FLEET_MENU_DIST_ALL]="dist-upgrade на ВСЕХ серверах"
+                [FLEET_MENU_PASS]="Сменить сохранённый SSH-пароль (только серверы с входом по паролю)"
                 [FLEET_MENU_PROMPT]="Выбор (0 = назад):"
+                [FLEET_PASS_STORAGE_WARN]="Пароли хранятся только в base64 на этой машине (${DIR_REMNAWAVE}fleet_servers, chmod 600), без шифрования. Root здесь может их прочитать."
+                [FLEET_PASS_ONLY_P]="У этого сервера не парольная авторизация (нужно поле auth \"p\")."
+                [FLEET_PASS_SET_NEW]="Задать новый сохранённый пароль"
+                [FLEET_PASS_CLEAR]="Удалить сохранённый пароль (спрашивать каждый раз)"
+                [FLEET_PASS_SUBPROMPT]="Действие (0 = отмена):"
+                [FLEET_PASS_NEW_PROMPT]="Новый SSH-пароль для этого сервера:"
+                [FLEET_PASS_UPDATED]="Сохранённый пароль обновлён."
+                [FLEET_PASS_CLEARED]="Сохранённый пароль удалён; при каждом SSH будет запрос."
+                [FLEET_PASS_NONEMPTY]="Пароль не может быть пустым."
+                [FLEET_ADD_SSH_PASS]="SSH-пароль (сохраняется на панели для флота; пусто = спрашивать каждый раз):"
+                [FLEET_ADD_SSH_PASS_EMPTY]="(пусто — не сохранять, спрашивать при каждом подключении)"
                 [FLEET_EMPTY]="В флоте нет серверов. Сначала добавьте."
                 [FLEET_ADD_NAME]="Метка сервера:"
                 [FLEET_ADD_USER]="Пользователь SSH (желательно root):"
@@ -822,6 +914,14 @@ set_language() {
                 [FLEET_DIST_ALL_WARN]="Запустить dist-upgrade на ВСЕХ серверах? (y/n):"
                 [FLEET_SHELL_HINT]="Удалённая оболочка — введите exit или Ctrl+D для возврата в меню."
                 [FLEET_APPLY_BBR_CONFIRM]="Применить BBR + CAKE на этом сервере? (y/n):"
+                [FLEET_BBR_ALREADY]="BBR + CAKE уже включены (tcp=bbr, default_qdisc содержит cake)."
+                [FLEET_BBR_REAPPLY_YN]="Всё равно перезаписать sysctl (BBR + CAKE)? (y/n):"
+                [FLEET_IPV6_STATE_LINE]="net.ipv6.conf.all.disable_ipv6=%s (1 = IPv6 выкл., 0 = вкл.)"
+                [FLEET_IPV6_OFF_HINT]="Сейчас IPv6 выключен. Ниже можно только включить обратно."
+                [FLEET_IPV6_ON_HINT]="Сейчас IPv6 включён. Ниже можно только выключить."
+                [FLEET_IPV6_ENABLE_YN]="Включить IPv6 на этом сервере? (y/n):"
+                [FLEET_IPV6_DISABLE_YN]="Выключить IPv6 на этом сервере? (y/n):"
+                [FLEET_IPV6_FALLBACK]="Не удалось прочитать состояние. 1) выкл. IPv6  2) вкл.  0) отмена:"
                 [FLEET_IPV6_SUB]="IPv6: 1 = выключить, 2 = включить:"
                 [FLEET_REBOOT_ONE]="Перезагрузить этот сервер? (y/n):"
                 #Manage IPv6
@@ -1446,9 +1546,22 @@ install_script_if_missing() {
         return 0
     }
 
-    if install_copy_from_self; then
+    local self_ver="" ins_ver=""
+    self_ver=$(script_read_version_from_file "$0" 2>/dev/null) || true
+
+    if [[ -f "$SCRIPT_INSTALL_PATH" ]]; then
+        ins_ver=$(script_read_version_from_file "$SCRIPT_INSTALL_PATH" 2>/dev/null) || true
+        # Never overwrite a newer on-disk install with an older local copy (e.g. SFTP upload vs bash old.sh).
+        if [[ -f "$0" ]] && head -n1 "$0" 2>/dev/null | grep -qE '^#!.*bash' && [[ -n "$self_ver" ]]; then
+            if [[ -z "$ins_ver" ]] || script_version_less_than "$ins_ver" "$self_ver"; then
+                cp -f -- "$0" "$SCRIPT_INSTALL_PATH" || true
+                chmod +x "$SCRIPT_INSTALL_PATH"
+            fi
+        fi
+        ln -sf "$SCRIPT_INSTALL_PATH" "$SCRIPT_SYMLINK"
+    elif install_copy_from_self; then
         :
-    elif [[ ! -f "$SCRIPT_INSTALL_PATH" ]] || [[ ! -e "$SCRIPT_SYMLINK" ]]; then
+    else
         if ! wget -q -O "$SCRIPT_INSTALL_PATH" "$SCRIPT_URL"; then
             echo -e "${COLOR_RED}Failed to install script (wget). Run from a saved .sh file (bash install_remnawave.sh) or set SCRIPT_URL to your fork.${COLOR_RESET}" >&2
             exit 1
@@ -1527,43 +1640,45 @@ check_update_status() {
         return
     fi
 
-    compare_versions_for_check() {
-        local v1="$1"
-        local v2="$2"
-
-        local v1_num="${v1//[^0-9.]/}"
-        local v2_num="${v2//[^0-9.]/}"
-
-        local v1_sfx="${v1//$v1_num/}"
-        local v2_sfx="${v2//$v2_num/}"
-
-        if [[ "$v1_num" == "$v2_num" ]]; then
-            if [[ -z "$v1_sfx" && -n "$v2_sfx" ]]; then
-                return 0
-            elif [[ -n "$v1_sfx" && -z "$v2_sfx" ]]; then
-                return 1
-            elif [[ "$v1_sfx" < "$v2_sfx" ]]; then
-                return 0
-            else
-                return 1
-            fi
-        else
-            if printf '%s\n' "$v1_num" "$v2_num" | sort -V | head -n1 | grep -qx "$v1_num"; then
-                return 0
-            else
-                return 1
-            fi
-        fi
-    }
-
-    if compare_versions_for_check "$SCRIPT_VERSION" "$REMOTE_VERSION"; then
+    if script_version_less_than "$SCRIPT_VERSION" "$REMOTE_VERSION"; then
         UPDATE_AVAILABLE=true
     else
         UPDATE_AVAILABLE=false
     fi
 }
 
+# Each launch: if GitHub copy is newer than the installed file, replace and re-exec so menus use the new code.
+sync_remnawave_script_from_github() {
+    local tmp rf="$SCRIPT_INSTALL_PATH" ins_ver dl_ver
+    [[ -f "$rf" ]] || return 0
+    tmp=$(mktemp)
+    if ! wget -q -O "$tmp" "$SCRIPT_URL" 2>/dev/null; then
+        if ! curl -fsSL "$SCRIPT_URL" -o "$tmp" 2>/dev/null; then
+            rm -f "$tmp"
+            return 0
+        fi
+    fi
+    head -n1 "$tmp" 2>/dev/null | grep -qE '^#!.*bash' || { rm -f "$tmp"; return 0; }
+    dl_ver=$(script_read_version_from_file "$tmp")
+    [[ -n "$dl_ver" ]] || { rm -f "$tmp"; return 0; }
+    ins_ver=$(script_read_version_from_file "$rf")
+    if [[ -n "$ins_ver" ]] && ! script_version_less_than "$ins_ver" "$dl_ver"; then
+        rm -f "$tmp"
+        return 0
+    fi
+    chmod +x "$tmp"
+    if ! mv -f "$tmp" "$rf"; then
+        rm -f "$tmp"
+        return 0
+    fi
+    ln -sf "$rf" "$SCRIPT_SYMLINK"
+    hash -r 2>/dev/null || true
+    printf "${COLOR_GREEN}${LANG[SCRIPT_SYNCED_RESTART]}${COLOR_RESET}\n" "$dl_ver"
+    exec bash "$rf"
+}
+
 show_menu() {
+    maybe_reexec_installed_script_if_disk_newer
     echo -e "${COLOR_GREEN}${LANG[MENU_TITLE]}${COLOR_RESET}"
     if [[ "$UPDATE_AVAILABLE" == true ]]; then
         echo -e "${COLOR_YELLOW}${LANG[UPDATE_HINT]}${COLOR_RESET}"
@@ -1587,6 +1702,7 @@ show_menu() {
 
 #Manage Install Remnawave Components
 show_install_menu() {
+    maybe_reexec_installed_script_if_disk_newer
     echo -e ""
     echo -e "${COLOR_GREEN}${LANG[INSTALL_MENU_TITLE]}${COLOR_RESET}"
     echo -e ""
@@ -1912,6 +2028,7 @@ reinstall_remnawave() {
 
 #Show Panel Node Menu
 show_panel_node_menu() {
+    maybe_reexec_installed_script_if_disk_newer
     echo -e ""
     echo -e "${COLOR_GREEN}${LANG[MENU_3]}${COLOR_RESET}"
     echo -e ""
@@ -1976,6 +2093,7 @@ show_panel_node_menu() {
 #Manage Panel Node Menu
 
 manage_extensions() {
+    maybe_reexec_installed_script_if_disk_newer
     echo -e ""
     echo -e "${COLOR_GREEN}${LANG[EXTENSIONS_MENU_TITLE]}${COLOR_RESET}"
     echo -e ""
@@ -6210,53 +6328,9 @@ sys.stdout.write(text)
 PY
 }
 
-# Reads and validates an unencrypted PEM private key; prints PEM to stdout on success
-ssh_load_private_key_from_path() {
-    local path="$1"
-
-    if ! command -v ssh-keygen >/dev/null 2>&1; then
-        echo -e "${COLOR_RED}${LANG[SSH_ERR_NO_SSH_KEYGEN]}${COLOR_RESET}" >&2
-        return 1
-    fi
-
-    path="${path/#\~/$HOME}"
-    path="${path#\"}"
-    path="${path%\"}"
-
-    if [[ -z "${path// }" ]]; then
-        echo -e "${COLOR_RED}${LANG[SSH_ERR_PATH_EMPTY]}${COLOR_RESET}" >&2
-        return 1
-    fi
-    if [[ ! -f "$path" ]]; then
-        echo -e "${COLOR_RED}${LANG[SSH_ERR_NOT_FILE]}${COLOR_RESET}" >&2
-        return 1
-    fi
-    if [[ ! -r "$path" ]]; then
-        echo -e "${COLOR_RED}${LANG[SSH_ERR_NOT_READABLE]}${COLOR_RESET}" >&2
-        return 1
-    fi
-
-    local max_bytes=1048576
-    local sz
-    sz=$(stat -c%s "$path" 2>/dev/null || stat -f%z "$path" 2>/dev/null || echo 0)
-    if [[ "${sz:-0}" -gt "$max_bytes" ]]; then
-        echo -e "${COLOR_RED}${LANG[SSH_ERR_FILE_TOO_LARGE]}${COLOR_RESET}" >&2
-        return 1
-    fi
-
-    local pem
-    if command -v python3 >/dev/null 2>&1 && pem=$(ssh_decode_private_key_file_to_text "$path" 2>/dev/null); then
-        :
-    elif ! pem=$(<"$path"); then
-        echo -e "${COLOR_RED}${LANG[SSH_ERR_READ_FAILED]}${COLOR_RESET}" >&2
-        return 1
-    else
-        if [[ "${pem:0:4096}" == *$'\0'* ]]; then
-            echo -e "${COLOR_RED}${LANG[SSH_ERR_BINARY_ENCODING]}${COLOR_RESET}" >&2
-            return 1
-        fi
-    fi
-
+# Normalizes and validates PEM material; prints PEM to stdout on success.
+ssh_privkey_validate_stdout() {
+    local pem="$1"
     pem=$(ssh_normalize_private_key_material "$pem")
 
     if [[ -z "${pem//[$' \t\r\n']}" ]]; then
@@ -6309,6 +6383,83 @@ ssh_load_private_key_from_path() {
 
     printf '%s' "$pem"
     return 0
+}
+
+# After first line -----BEGIN..., read remaining PEM lines from stdin until -----END...PRIVATE KEY-----
+ssh_read_pem_rest_from_stdin() {
+    local first="$1" pem line
+    first="${first//$'\r'/}"
+    pem="${first}"$'\n'
+    echo -e "${COLOR_GRAY}${LANG[SSH_PASTE_REST]}${COLOR_RESET}" >&2
+    while IFS= read -r line || [[ -n "$line" ]]; do
+        line="${line//$'\r'/}"
+        pem+="${line}"$'\n'
+        if [[ "$line" == -----END*PRIVATE*KEY-----* ]]; then
+            printf '%s' "$pem"
+            return 0
+        fi
+    done
+    echo -e "${COLOR_RED}${LANG[SSH_ERR_NOT_PRIVATE_KEY]}${COLOR_RESET}" >&2
+    return 1
+}
+
+# Reads and validates an unencrypted PEM private key; prints PEM to stdout on success
+ssh_load_private_key_from_path() {
+    local path="$1"
+
+    if ! command -v ssh-keygen >/dev/null 2>&1; then
+        echo -e "${COLOR_RED}${LANG[SSH_ERR_NO_SSH_KEYGEN]}${COLOR_RESET}" >&2
+        return 1
+    fi
+
+    path="${path/#\~/$HOME}"
+    path="${path#\"}"
+    path="${path%\"}"
+
+    if [[ -z "${path// }" ]]; then
+        echo -e "${COLOR_RED}${LANG[SSH_ERR_PATH_EMPTY]}${COLOR_RESET}" >&2
+        return 1
+    fi
+    if [[ ! -f "$path" ]]; then
+        echo -e "${COLOR_RED}${LANG[SSH_ERR_NOT_FILE]}${COLOR_RESET}" >&2
+        return 1
+    fi
+    if [[ ! -r "$path" ]]; then
+        echo -e "${COLOR_RED}${LANG[SSH_ERR_NOT_READABLE]}${COLOR_RESET}" >&2
+        return 1
+    fi
+
+    local max_bytes=1048576
+    local sz
+    sz=$(stat -c%s "$path" 2>/dev/null || stat -f%z "$path" 2>/dev/null || echo 0)
+    if [[ "${sz:-0}" -gt "$max_bytes" ]]; then
+        echo -e "${COLOR_RED}${LANG[SSH_ERR_FILE_TOO_LARGE]}${COLOR_RESET}" >&2
+        return 1
+    fi
+
+    local pem
+    if grep -q '^PuTTY-User-Key-File' "$path" 2>/dev/null; then
+        if ! command -v puttygen >/dev/null 2>&1; then
+            echo -e "${COLOR_RED}${LANG[SSH_ERR_PUTTY]}${COLOR_RESET}" >&2
+            return 1
+        fi
+        if ! pem=$(puttygen "$path" -O private-openssh -o - 2>/dev/null); then
+            echo -e "${COLOR_RED}${LANG[SSH_ERR_PUTTYGEN]}${COLOR_RESET}" >&2
+            return 1
+        fi
+    elif command -v python3 >/dev/null 2>&1 && pem=$(ssh_decode_private_key_file_to_text "$path" 2>/dev/null); then
+        :
+    elif ! pem=$(<"$path"); then
+        echo -e "${COLOR_RED}${LANG[SSH_ERR_READ_FAILED]}${COLOR_RESET}" >&2
+        return 1
+    else
+        if [[ "${pem:0:4096}" == *$'\0'* ]]; then
+            echo -e "${COLOR_RED}${LANG[SSH_ERR_BINARY_ENCODING]}${COLOR_RESET}" >&2
+            return 1
+        fi
+    fi
+
+    ssh_privkey_validate_stdout "$pem"
 }
 
 ssh_vault_list_labels() {
@@ -6434,6 +6585,96 @@ fleet_get_line() {
     sed -n "${1}p" "$FLEET_SERVERS_FILE"
 }
 
+fleet_password_to_b64() {
+    if ! printf '%s' "$1" | base64 -w0 2>/dev/null; then
+        printf '%s' "$1" | base64 | tr -d '\n'
+    fi
+}
+
+# Decodes optional 6th field (base64) when auth is p; stdout = plaintext password.
+fleet_get_saved_password_from_line() {
+    local line="$1" pw_b64
+    [[ -z "${line//[$' \t']/}" ]] && return 1
+    IFS='|' read -r _lbl _user _host _port _auth pw_b64 <<<"$line"
+    [[ "$_auth" == "p" ]] || return 1
+    [[ -n "${pw_b64//[$' \t\r\n']}" ]] || return 1
+    printf '%s' "$pw_b64" | base64 -d 2>/dev/null || return 1
+}
+
+fleet_ensure_sshpass_installed() {
+    command -v sshpass >/dev/null 2>&1 || {
+        echo -e "${COLOR_YELLOW}${LANG[AUTO_NODE_NEED_SSHPASS]}${COLOR_RESET}"
+        apt-get update -y && apt-get install -y sshpass || return 1
+    }
+    return 0
+}
+
+# want = 1-based index among non-empty lines; new_b64 empty clears stored password for p rows.
+fleet_set_password_b64_at_line() {
+    local want="$1" new_b64="$2" tmp
+    tmp=$(mktemp)
+    export FLEET_NB="$new_b64"
+    awk -F'|' -v OFS='|' -v want="$want" '
+        /^[[:space:]]*$/ { next }
+        {
+            idx++
+            if (idx != want) { print; next }
+            if (NF < 5) { print; next }
+            if ($5 != "p") { print; next }
+            if (ENVIRON["FLEET_NB"] == "") { print $1, $2, $3, $4, "p"; next }
+            { print $1, $2, $3, $4, "p", ENVIRON["FLEET_NB"]; next }
+        }
+    ' "$FLEET_SERVERS_FILE" >"$tmp" || {
+        rm -f "$tmp"
+        unset FLEET_NB
+        return 1
+    }
+    unset FLEET_NB
+    mv "$tmp" "$FLEET_SERVERS_FILE"
+    chmod 600 "$FLEET_SERVERS_FILE"
+}
+
+fleet_change_password_interactive() {
+    ensure_fleet_file
+    local tot m ch fpw b64 line auth
+    tot=$(fleet_nonblank_count)
+    [[ "${tot:-0}" -eq 0 ]] && {
+        echo -e "${COLOR_YELLOW}${LANG[FLEET_EMPTY]}${COLOR_RESET}"
+        return 0
+    }
+    echo -e "${COLOR_GRAY}${LANG[FLEET_PASS_STORAGE_WARN]}${COLOR_RESET}"
+    reading "${LANG[FLEET_PICK_NUM]}" m
+    [[ "$m" =~ ^[0-9]+$ ]] && [[ "$m" -ge 1 ]] && [[ "$m" -le "$tot" ]] || return 1
+    line=$(fleet_get_line "$m")
+    IFS='|' read -r _a _b _c _d auth _rest <<<"$line"
+    [[ "$auth" == "p" ]] || {
+        echo -e "${COLOR_RED}${LANG[FLEET_PASS_ONLY_P]}${COLOR_RESET}"
+        return 1
+    }
+    echo -e "${COLOR_YELLOW}1.${COLOR_RESET} ${LANG[FLEET_PASS_SET_NEW]}"
+    echo -e "${COLOR_YELLOW}2.${COLOR_RESET} ${LANG[FLEET_PASS_CLEAR]}"
+    echo -e "${COLOR_YELLOW}0.${COLOR_RESET} ${LANG[EXIT]}"
+    reading "${LANG[FLEET_PASS_SUBPROMPT]}" ch
+    case "$ch" in
+        1)
+            reading_with_confirm "${LANG[FLEET_PASS_NEW_PROMPT]}" fpw secret ""
+            if [[ -z "${fpw// }" ]]; then
+                echo -e "${COLOR_RED}${LANG[FLEET_PASS_NONEMPTY]}${COLOR_RESET}"
+                return 1
+            fi
+            b64=$(fleet_password_to_b64 "$fpw")
+            fleet_set_password_b64_at_line "$m" "$b64"
+            echo -e "${COLOR_GREEN}${LANG[FLEET_PASS_UPDATED]}${COLOR_RESET}"
+            ;;
+        2)
+            fleet_set_password_b64_at_line "$m" ""
+            echo -e "${COLOR_GREEN}${LANG[FLEET_PASS_CLEARED]}${COLOR_RESET}"
+            ;;
+        0) return 0 ;;
+        *) echo -e "${COLOR_YELLOW}${LANG[INVALID_CHOICE]}${COLOR_RESET}" ;;
+    esac
+}
+
 # Run bash script on remote via stdin. Uses SSH vault key k:N or password (p).
 fleet_run_ssh_script() {
     local line_num="$1"
@@ -6441,21 +6682,20 @@ fleet_run_ssh_script() {
     local line _lbl _user _host _port _auth
     line=$(fleet_get_line "$line_num")
     [[ -z "${line//[$' \t']/}" ]] && return 1
-    IFS='|' read -r _lbl _user _host _port _auth <<<"$line"
+    IFS='|' read -r _lbl _user _host _port _auth _pw_b64 <<<"$line"
     [[ -z "$_user" || -z "$_host" ]] && return 1
     [[ -z "$_port" ]] && _port=22
     local -a base=(ssh -p "$_port" -o ConnectTimeout=25 -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile="${DIR_REMNAWAVE}fleet_known_hosts")
     local kf="" ec=0
     if [[ "$_auth" == "p" ]]; then
-        base+=( -o BatchMode=no )
-        local pw
-        question "${LANG[AUTO_NODE_SSH_PASS]}"
-        read -rs pw || return 1
-        echo
-        command -v sshpass >/dev/null 2>&1 || {
-            echo -e "${COLOR_YELLOW}${LANG[AUTO_NODE_NEED_SSHPASS]}${COLOR_RESET}"
-            apt-get update -y && apt-get install -y sshpass || return 1
-        }
+        fleet_ensure_sshpass_installed || return 1
+        base+=( -o BatchMode=yes )
+        local pw=""
+        if ! pw=$(fleet_get_saved_password_from_line "$line"); then
+            question "${LANG[AUTO_NODE_SSH_PASS]}"
+            read -rs pw || return 1
+            echo
+        fi
         sshpass -p "$pw" "${base[@]}" "${_user}@${_host}" bash -s <<<"$script" || ec=$?
     elif [[ "$_auth" == k:* ]]; then
         base+=( -o BatchMode=yes )
@@ -6470,25 +6710,60 @@ fleet_run_ssh_script() {
     return "$ec"
 }
 
+# Same SSH as fleet_run_ssh_script but capture stdout (for parsing sysctl etc.). Password asked once if needed.
+fleet_run_ssh_stdout() {
+    local line_num="$1"
+    local script="$2"
+    local line _lbl _user _host _port _auth
+    line=$(fleet_get_line "$line_num")
+    [[ -z "${line//[$' \t']/}" ]] && return 1
+    IFS='|' read -r _lbl _user _host _port _auth _pw_b64 <<<"$line"
+    [[ -z "$_user" || -z "$_host" ]] && return 1
+    [[ -z "$_port" ]] && _port=22
+    local -a base=(ssh -p "$_port" -o ConnectTimeout=25 -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile="${DIR_REMNAWAVE}fleet_known_hosts")
+    local out="" ec=0 kf=""
+    if [[ "$_auth" == "p" ]]; then
+        fleet_ensure_sshpass_installed || return 1
+        base+=( -o BatchMode=yes )
+        local pw=""
+        if ! pw=$(fleet_get_saved_password_from_line "$line"); then
+            question "${LANG[AUTO_NODE_SSH_PASS]}"
+            read -rs pw || return 1
+            echo
+        fi
+        out=$(sshpass -p "$pw" "${base[@]}" "${_user}@${_host}" bash -s <<<"$script" 2>/dev/null) || ec=$?
+    elif [[ "$_auth" == k:* ]]; then
+        base+=( -o BatchMode=yes )
+        kf=$(ssh_vault_write_temp_key "${_auth#k:}") || return 1
+        out=$(ssh -i "$kf" "${base[@]}" "${_user}@${_host}" bash -s <<<"$script" 2>/dev/null) || ec=$?
+        rm -f "$kf"
+    else
+        return 1
+    fi
+    printf '%s' "$out"
+    return "$ec"
+}
+
 fleet_run_ssh_tty() {
     local line_num="$1"
     local line _lbl _user _host _port _auth
     line=$(fleet_get_line "$line_num")
     [[ -z "${line//[$' \t']/}" ]] && return 1
-    IFS='|' read -r _lbl _user _host _port _auth <<<"$line"
+    IFS='|' read -r _lbl _user _host _port _auth _pw_b64 <<<"$line"
     [[ -z "$_user" || -z "$_host" ]] && return 1
     [[ -z "$_port" ]] && _port=22
     local -a base=(ssh -tt -p "$_port" -o ConnectTimeout=25 -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile="${DIR_REMNAWAVE}fleet_known_hosts")
     local kf=""
     echo -e "${COLOR_GRAY}${LANG[FLEET_SHELL_HINT]}${COLOR_RESET}"
     if [[ "$_auth" == "p" ]]; then
-        local pw
-        question "${LANG[AUTO_NODE_SSH_PASS]}"
-        read -rs pw || return 1
-        echo
-        command -v sshpass >/dev/null 2>&1 || {
-            apt-get update -y && apt-get install -y sshpass || return 1
-        }
+        fleet_ensure_sshpass_installed || return 1
+        base+=( -o BatchMode=yes )
+        local pw=""
+        if ! pw=$(fleet_get_saved_password_from_line "$line"); then
+            question "${LANG[AUTO_NODE_SSH_PASS]}"
+            read -rs pw || return 1
+            echo
+        fi
         sshpass -p "$pw" "${base[@]}" "${_user}@${_host}" bash -l || true
     elif [[ "$_auth" == k:* ]]; then
         local ki="${_auth#k:}"
@@ -6567,6 +6842,16 @@ fleet_add_interactive() {
         authc="k:${kidx}"
     elif [[ "$authc" == "2" ]]; then
         authc="p"
+        local fpw fb64
+        reading_with_confirm "${LANG[FLEET_ADD_SSH_PASS]}" fpw secret "${LANG[FLEET_ADD_SSH_PASS_EMPTY]}"
+        if [[ -n "${fpw// }" ]]; then
+            fb64=$(fleet_password_to_b64 "$fpw")
+            printf '%s\n' "${lbl}|${user}|${host}|${port}|p|${fb64}" >>"$FLEET_SERVERS_FILE"
+        else
+            printf '%s\n' "${lbl}|${user}|${host}|${port}|p" >>"$FLEET_SERVERS_FILE"
+        fi
+        echo -e "${COLOR_GREEN}${LANG[FLEET_SAVED]}${COLOR_RESET}"
+        return 0
     else
         echo -e "${COLOR_RED}${LANG[INVALID_CHOICE]}${COLOR_RESET}"
         return 1
@@ -6636,6 +6921,7 @@ fleet_port_shaper_menu() {
     local sn="$1"
     local so pc dm um cf
     while true; do
+        maybe_reexec_installed_script_if_disk_newer
         echo -e "${COLOR_GREEN}${LANG[FLEET_SHAPER_TITLE]}${COLOR_RESET}"
         echo -e "${COLOR_GRAY}${LANG[FLEET_SHAPER_EXPLAIN]}${COLOR_RESET}"
         echo -e "${COLOR_YELLOW}1.${COLOR_RESET} ${LANG[FLEET_SHAPER_1]}"
@@ -6686,6 +6972,7 @@ fleet_submenu_server() {
     local sn="$1"
     local ch rb ipv ap
     while true; do
+        maybe_reexec_installed_script_if_disk_newer
         echo -e "${COLOR_GREEN}${LANG[FLEET_MENU_SERVER_ACTIONS]}${COLOR_RESET}"
         echo -e "${COLOR_YELLOW}1.${COLOR_RESET} ${LANG[FLEET_SUB_BBR]}"
         echo -e "${COLOR_YELLOW}2.${COLOR_RESET} ${LANG[FLEET_SUB_IPV6]}"
@@ -6699,20 +6986,51 @@ fleet_submenu_server() {
         case "$ch" in
             0) return 0 ;;
             1)
-                fleet_run_ssh_script "$sn" "$(declare -f remote_show_net_tuning; echo remote_show_net_tuning)" || echo -e "${COLOR_RED}${LANG[FLEET_SSH_FAIL]}${COLOR_RESET}"
-                reading "${LANG[FLEET_APPLY_BBR_CONFIRM]}" ap
-                if [[ "$ap" == "y" || "$ap" == "Y" ]]; then
-                    fleet_run_ssh_script "$sn" "$(declare -f remote_show_net_tuning remote_apply_bbr_cake; echo remote_apply_bbr_cake)" || echo -e "${COLOR_RED}${LANG[FLEET_SSH_FAIL]}${COLOR_RESET}"
+                local bout cc qd ap
+                bout=$(fleet_run_ssh_stdout "$sn" "$(declare -f remote_show_net_tuning; echo remote_show_net_tuning)") || {
+                    echo -e "${COLOR_RED}${LANG[FLEET_SSH_FAIL]}${COLOR_RESET}"
+                    bout=""
+                }
+                if [[ -n "$bout" ]]; then
+                    echo "$bout"
+                    cc=$(echo "$bout" | sed -n 's/^tcp_congestion_control=//p' | head -1 | tr -d '\r')
+                    qd=$(echo "$bout" | sed -n 's/^default_qdisc=//p' | head -1 | tr -d '\r')
+                    if [[ "$cc" == "bbr" && "$qd" == *cake* ]]; then
+                        echo -e "${COLOR_GREEN}${LANG[FLEET_BBR_ALREADY]}${COLOR_RESET}"
+                        reading "${LANG[FLEET_BBR_REAPPLY_YN]}" ap
+                    else
+                        reading "${LANG[FLEET_APPLY_BBR_CONFIRM]}" ap
+                    fi
+                    if [[ "$ap" == "y" || "$ap" == "Y" ]]; then
+                        fleet_run_ssh_script "$sn" "$(declare -f remote_show_net_tuning remote_apply_bbr_cake; echo remote_apply_bbr_cake)" || echo -e "${COLOR_RED}${LANG[FLEET_SSH_FAIL]}${COLOR_RESET}"
+                    fi
                 fi
                 ;;
             2)
-                fleet_run_ssh_script "$sn" "sysctl net.ipv6.conf.all.disable_ipv6 2>/dev/null || true" || true
-                echo -e "${COLOR_YELLOW}1) disable IPv6  2) enable IPv6${COLOR_RESET}"
-                reading "${LANG[FLEET_IPV6_SUB]}" ipv
-                case "$ipv" in
-                    1) fleet_run_ssh_script "$sn" "$(declare -f remote_disable_ipv6; echo remote_disable_ipv6)" || echo -e "${COLOR_RED}${LANG[FLEET_SSH_FAIL]}${COLOR_RESET}" ;;
-                    2) fleet_run_ssh_script "$sn" "$(declare -f remote_enable_ipv6; echo remote_enable_ipv6)" || echo -e "${COLOR_RED}${LANG[FLEET_SSH_FAIL]}${COLOR_RESET}" ;;
-                esac
+                local v6 ipv
+                v6=$(fleet_run_ssh_stdout "$sn" "sysctl -n net.ipv6.conf.all.disable_ipv6 2>/dev/null") || v6=""
+                v6="${v6//[$' \t\r\n']/}"
+                printf "${COLOR_WHITE}${LANG[FLEET_IPV6_STATE_LINE]}${COLOR_RESET}\n" "${v6:-?}"
+                if [[ "$v6" == "1" ]]; then
+                    echo -e "${COLOR_GRAY}${LANG[FLEET_IPV6_OFF_HINT]}${COLOR_RESET}"
+                    reading "${LANG[FLEET_IPV6_ENABLE_YN]}" ipv
+                    if [[ "$ipv" == "y" || "$ipv" == "Y" ]]; then
+                        fleet_run_ssh_script "$sn" "$(declare -f remote_enable_ipv6; echo remote_enable_ipv6)" || echo -e "${COLOR_RED}${LANG[FLEET_SSH_FAIL]}${COLOR_RESET}"
+                    fi
+                elif [[ "$v6" == "0" ]]; then
+                    echo -e "${COLOR_GRAY}${LANG[FLEET_IPV6_ON_HINT]}${COLOR_RESET}"
+                    reading "${LANG[FLEET_IPV6_DISABLE_YN]}" ipv
+                    if [[ "$ipv" == "y" || "$ipv" == "Y" ]]; then
+                        fleet_run_ssh_script "$sn" "$(declare -f remote_disable_ipv6; echo remote_disable_ipv6)" || echo -e "${COLOR_RED}${LANG[FLEET_SSH_FAIL]}${COLOR_RESET}"
+                    fi
+                else
+                    echo -e "${COLOR_YELLOW}${LANG[FLEET_IPV6_FALLBACK]}${COLOR_RESET}"
+                    reading "${LANG[FLEET_IPV6_FALLBACK]}" ipv
+                    case "$ipv" in
+                        1) fleet_run_ssh_script "$sn" "$(declare -f remote_disable_ipv6; echo remote_disable_ipv6)" || echo -e "${COLOR_RED}${LANG[FLEET_SSH_FAIL]}${COLOR_RESET}" ;;
+                        2) fleet_run_ssh_script "$sn" "$(declare -f remote_enable_ipv6; echo remote_enable_ipv6)" || echo -e "${COLOR_RED}${LANG[FLEET_SSH_FAIL]}${COLOR_RESET}" ;;
+                    esac
+                fi
                 ;;
             3)
                 reading "${LANG[FLEET_REBOOT_ONE]}" rb
@@ -6760,6 +7078,7 @@ manage_fleet_menu() {
     ensure_fleet_file
     local opt tot sn
     while true; do
+        maybe_reexec_installed_script_if_disk_newer
         echo -e ""
         echo -e "${COLOR_GREEN}${LANG[FLEET_MENU_TITLE]}${COLOR_RESET}"
         echo -e "${COLOR_YELLOW}1.${COLOR_RESET} ${LANG[FLEET_MENU_LIST]}"
@@ -6769,6 +7088,7 @@ manage_fleet_menu() {
         echo -e "${COLOR_YELLOW}5.${COLOR_RESET} ${LANG[FLEET_MENU_SERVER_ACTIONS]}"
         echo -e "${COLOR_YELLOW}6.${COLOR_RESET} ${LANG[FLEET_MENU_REBOOT_ALL]}"
         echo -e "${COLOR_YELLOW}7.${COLOR_RESET} ${LANG[FLEET_MENU_DIST_ALL]}"
+        echo -e "${COLOR_YELLOW}8.${COLOR_RESET} ${LANG[FLEET_MENU_PASS]}"
         echo -e "${COLOR_YELLOW}0.${COLOR_RESET} ${LANG[EXIT]}"
         reading "${LANG[FLEET_MENU_PROMPT]}" opt
         case "$opt" in
@@ -6796,6 +7116,7 @@ manage_fleet_menu() {
                 ;;
             6) fleet_reboot_all ;;
             7) fleet_dist_all ;;
+            8) fleet_change_password_interactive || true ;;
             *) echo -e "${COLOR_YELLOW}${LANG[INVALID_CHOICE]}${COLOR_RESET}" ;;
         esac
     done
@@ -6803,6 +7124,7 @@ manage_fleet_menu() {
 
 manage_ssh_keys_menu() {
     while true; do
+        maybe_reexec_installed_script_if_disk_newer
         echo -e ""
         echo -e "${COLOR_GREEN}${LANG[SSH_MENU_TITLE]}${COLOR_RESET}"
         echo -e "${COLOR_YELLOW}1. ${LANG[SSH_MENU_LIST]}${COLOR_RESET}"
@@ -6823,8 +7145,14 @@ manage_ssh_keys_menu() {
                     echo -e "${COLOR_RED}${LANG[SSH_ERR_NAME_EMPTY]}${COLOR_RESET}"
                 else
                     reading_with_confirm "${LANG[SSH_ENTER_KEY_PATH]}" skpath plain ""
-                    local pem=""
-                    if pem=$(ssh_load_private_key_from_path "$skpath"); then
+                    local pem="" skt="${skpath//$'\r'/}"
+                    if [[ "$skt" =~ ^[[:space:]]*-----BEGIN ]]; then
+                        local _raw
+                        _raw=$(ssh_read_pem_rest_from_stdin "$skt") && pem=$(ssh_privkey_validate_stdout "$_raw")
+                    else
+                        pem=$(ssh_load_private_key_from_path "$skpath")
+                    fi
+                    if [[ -n "$pem" ]]; then
                         if ssh_vault_pem_is_duplicate "$pem"; then
                             echo -e "${COLOR_RED}${LANG[SSH_ERR_DUPLICATE_KEY]}${COLOR_RESET}"
                         else
@@ -7394,6 +7722,8 @@ fi
 check_root
 check_os
 install_script_if_missing
+sync_remnawave_script_from_github
+maybe_reexec_installed_script_if_disk_newer
 check_update_status
 show_menu
 
