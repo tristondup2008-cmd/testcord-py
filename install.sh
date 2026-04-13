@@ -1,6 +1,6 @@
 #!/bin/bash
 
-SCRIPT_VERSION="3.3.8"
+SCRIPT_VERSION="3.3.9"
 UPDATE_AVAILABLE=false
 DIR_REMNAWAVE="/usr/local/remnawave_auto/"
 # Installed launcher (replaces upstream remnawave_reverse / rr): this file + symlink in /usr/local/bin
@@ -9,7 +9,7 @@ SCRIPT_INSTALL_PATH="${DIR_REMNAWAVE}${SCRIPT_INSTALL_NAME}"
 SCRIPT_SYMLINK="/usr/local/bin/${SCRIPT_INSTALL_NAME}"
 LANG_FILE="${DIR_REMNAWAVE}selected_language"
 # Raw install script URL for startup update check and install_script_if_missing (replace with your fork if needed)
-SCRIPT_URL="https://raw.githubusercontent.com/tristondup2008-cmd/testcord-py/refs/heads/main/install.sh"
+SCRIPT_URL="https://raw.githubusercontent.com/eGamesAPI/remnawave-reverse-proxy/refs/heads/main/install_remnawave.sh"
 # Raw GitHub URL to a single .html file used as self-steal landing on auto-provisioned nodes (required for automatic node setup)
 SELFSTEAL_TEMPLATE_HTML_URL="https://raw.githubusercontent.com/tristondup2008-cmd/testcord-py/refs/heads/main/index.html"
 SSH_VAULT_FILE="${DIR_REMNAWAVE}ssh_vault"
@@ -325,8 +325,7 @@ set_language() {
                 [FLEET_PASS_UPDATED]="Saved password updated."
                 [FLEET_PASS_CLEARED]="Saved password removed; you will be prompted on each SSH."
                 [FLEET_PASS_NONEMPTY]="Password cannot be empty."
-                [FLEET_ADD_SSH_PASS]="SSH password (stored on this panel for fleet SSH; leave empty to ask every time):"
-                [FLEET_ADD_SSH_PASS_EMPTY]="(empty = do not save, prompt each connection)"
+                [FLEET_ADD_SSH_PASS]="SSH password (required — saved on this panel for fleet; stored as base64 in fleet_servers):"
                 [FLEET_EMPTY]="No servers in fleet. Add one first."
                 [FLEET_ADD_NAME]="Server label:"
                 [FLEET_ADD_USER]="SSH user (root recommended):"
@@ -878,8 +877,7 @@ set_language() {
                 [FLEET_PASS_UPDATED]="Сохранённый пароль обновлён."
                 [FLEET_PASS_CLEARED]="Сохранённый пароль удалён; при каждом SSH будет запрос."
                 [FLEET_PASS_NONEMPTY]="Пароль не может быть пустым."
-                [FLEET_ADD_SSH_PASS]="SSH-пароль (сохраняется на панели для флота; пусто = спрашивать каждый раз):"
-                [FLEET_ADD_SSH_PASS_EMPTY]="(пусто — не сохранять, спрашивать при каждом подключении)"
+                [FLEET_ADD_SSH_PASS]="SSH-пароль (обязателен — сохраняется на панели для флота, в fleet_servers в base64):"
                 [FLEET_EMPTY]="В флоте нет серверов. Сначала добавьте."
                 [FLEET_ADD_NAME]="Метка сервера:"
                 [FLEET_ADD_USER]="Пользователь SSH (желательно root):"
@@ -6843,13 +6841,15 @@ fleet_add_interactive() {
     elif [[ "$authc" == "2" ]]; then
         authc="p"
         local fpw fb64
-        reading_with_confirm "${LANG[FLEET_ADD_SSH_PASS]}" fpw secret "${LANG[FLEET_ADD_SSH_PASS_EMPTY]}"
-        if [[ -n "${fpw// }" ]]; then
-            fb64=$(fleet_password_to_b64 "$fpw")
-            printf '%s\n' "${lbl}|${user}|${host}|${port}|p|${fb64}" >>"$FLEET_SERVERS_FILE"
-        else
-            printf '%s\n' "${lbl}|${user}|${host}|${port}|p" >>"$FLEET_SERVERS_FILE"
-        fi
+        while true; do
+            reading_with_confirm "${LANG[FLEET_ADD_SSH_PASS]}" fpw secret ""
+            if [[ -n "${fpw// }" ]]; then
+                break
+            fi
+            echo -e "${COLOR_RED}${LANG[FLEET_PASS_NONEMPTY]}${COLOR_RESET}"
+        done
+        fb64=$(fleet_password_to_b64 "$fpw")
+        printf '%s\n' "${lbl}|${user}|${host}|${port}|p|${fb64}" >>"$FLEET_SERVERS_FILE"
         echo -e "${COLOR_GREEN}${LANG[FLEET_SAVED]}${COLOR_RESET}"
         return 0
     else
