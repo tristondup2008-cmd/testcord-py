@@ -1,6 +1,6 @@
 #!/bin/bash
 
-SCRIPT_VERSION="3.3.13"
+SCRIPT_VERSION="3.3.14"
 UPDATE_AVAILABLE=false
 DIR_REMNAWAVE="/usr/local/remnawave_auto/"
 # Installed launcher (replaces upstream remnawave_reverse / rr): this file + symlink in /usr/local/bin
@@ -5933,7 +5933,7 @@ remote_traffic_guard_base() {
 }
 
 remote_traffic_guard_full() {
-    command -v traffic-guard >/dev/null 2>&1 || curl -fsSL https://raw.githubusercontent.com/dotX12/traffic-guard/master/install.sh | bash
+    command -v traffic-guard >/dev/null 2>&1 || curl -fsSL https://raw.githubusercontent.com/tristondup2008-cmd/traffic-guard/master/install.sh | bash
     traffic-guard full -u https://raw.githubusercontent.com/shadow-netlab/traffic-guard-lists/refs/heads/main/public/antiscanner.list -u https://raw.githubusercontent.com/shadow-netlab/traffic-guard-lists/26929c9db71443a18c4369299ba60673a792c2ac/public/government_networks.list -u https://raw.githubusercontent.com/shadow-netlab/traffic-guard-lists/refs/heads/main/public/skipa.list --enable-logging
 }
 
@@ -5974,7 +5974,26 @@ add_node_to_panel_api_sequence() {
 remote_install_docker_prereqs() {
     set -e
     export DEBIAN_FRONTEND=noninteractive
-    apt-get install -y ca-certificates curl jq ufw wget gnupg unzip nano dialog git certbot python3-certbot-dns-cloudflare dnsutils coreutils grep gawk python3-pip openssh-client sshpass || true
+    remote_apt_wait_unlock() {
+        while pgrep -x apt >/dev/null 2>&1 || pgrep -x apt-get >/dev/null 2>&1 || pgrep -x dpkg >/dev/null 2>&1 || pgrep -f unattended-upgrade >/dev/null 2>&1; do
+            echo "apt/dpkg lock is busy, waiting..."
+            sleep 3
+        done
+    }
+    remote_apt_retry() {
+        local tries=20 i rc=0
+        for ((i = 1; i <= tries; i++)); do
+            remote_apt_wait_unlock
+            if apt-get "$@"; then
+                return 0
+            fi
+            rc=$?
+            echo "apt-get failed (attempt $i/$tries, rc=$rc). Retrying..."
+            sleep 6
+        done
+        return "$rc"
+    }
+    remote_apt_retry install -y ca-certificates curl jq ufw wget gnupg unzip nano dialog git certbot python3-certbot-dns-cloudflare dnsutils coreutils grep gawk python3-pip openssh-client sshpass || true
     if command -v pip >/dev/null 2>&1; then
         pip install --break-system-packages certbot-dns-gcore >/dev/null 2>&1 || true
     fi
@@ -5989,8 +6008,8 @@ remote_install_docker_prereqs() {
         chmod a+r /etc/apt/keyrings/docker.asc
         echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian $(. /etc/os-release && echo "$VERSION_CODENAME") stable" > /etc/apt/sources.list.d/docker.list
     fi
-    apt-get update -y
-    apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+    remote_apt_retry update -y
+    remote_apt_retry install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
     systemctl enable --now docker
     if ! docker info >/dev/null 2>&1; then
         exit 1
@@ -6120,9 +6139,23 @@ manage_auto_remote_node() {
         return 1
     fi
 
-    if ! run_remote "${LANG[AUTO_NODE_REMOTE_APT_DESC]}" "$(printf '%s\n' 'export DEBIAN_FRONTEND=noninteractive' 'apt-get update -y')"; then return 1; fi
-    if ! run_remote "traffic-guard" "$(printf '%s\n' 'curl -fsSL https://raw.githubusercontent.com/dotX12/traffic-guard/master/install.sh | bash')"; then return 1; fi
-    if ! run_remote "ufw fail2ban" "$(printf '%s\n' 'export DEBIAN_FRONTEND=noninteractive' 'apt-get install -y ufw fail2ban')"; then return 1; fi
+    if ! run_remote "${LANG[AUTO_NODE_REMOTE_APT_DESC]}" "$(printf '%s\n' \
+        'export DEBIAN_FRONTEND=noninteractive' \
+        'for i in $(seq 1 20); do' \
+        '  while pgrep -x apt >/dev/null 2>&1 || pgrep -x apt-get >/dev/null 2>&1 || pgrep -x dpkg >/dev/null 2>&1 || pgrep -f unattended-upgrade >/dev/null 2>&1; do sleep 3; done' \
+        '  apt-get update -y && exit 0' \
+        '  sleep 6' \
+        'done' \
+        'exit 1')"; then return 1; fi
+    if ! run_remote "traffic-guard" "$(printf '%s\n' 'curl -fsSL https://raw.githubusercontent.com/tristondup2008-cmd/traffic-guard/master/install.sh | bash')"; then return 1; fi
+    if ! run_remote "ufw fail2ban" "$(printf '%s\n' \
+        'export DEBIAN_FRONTEND=noninteractive' \
+        'for i in $(seq 1 20); do' \
+        '  while pgrep -x apt >/dev/null 2>&1 || pgrep -x apt-get >/dev/null 2>&1 || pgrep -x dpkg >/dev/null 2>&1 || pgrep -f unattended-upgrade >/dev/null 2>&1; do sleep 3; done' \
+        '  apt-get install -y ufw fail2ban && exit 0' \
+        '  sleep 6' \
+        'done' \
+        'exit 1')"; then return 1; fi
     if ! run_remote "ufw rules" "$(printf '%s\n' 'ufw allow 22/tcp || true' 'ufw allow 80/tcp || true' 'ufw allow 443/tcp || true')"; then return 1; fi
     if ! run_remote "traffic-guard full" "traffic-guard full -u https://raw.githubusercontent.com/shadow-netlab/traffic-guard-lists/refs/heads/main/public/antiscanner.list -u https://raw.githubusercontent.com/shadow-netlab/traffic-guard-lists/26929c9db71443a18c4369299ba60673a792c2ac/public/government_networks.list -u https://raw.githubusercontent.com/shadow-netlab/traffic-guard-lists/refs/heads/main/public/skipa.list --enable-logging"; then return 1; fi
     auto_ssh "ufw status verbose" || true
