@@ -1,6 +1,6 @@
 #!/bin/bash
 
-SCRIPT_VERSION="3.3.12"
+SCRIPT_VERSION="3.3.13"
 UPDATE_AVAILABLE=false
 DIR_REMNAWAVE="/usr/local/remnawave_auto/"
 # Installed launcher (replaces upstream remnawave_reverse / rr): this file + symlink in /usr/local/bin
@@ -12,7 +12,6 @@ LANG_FILE="${DIR_REMNAWAVE}selected_language"
 SCRIPT_URL="https://raw.githubusercontent.com/tristondup2008-cmd/testcord-py/refs/heads/main/install.sh"
 # Raw GitHub URL to a single .html file used as self-steal landing on auto-provisioned nodes (required for automatic node setup)
 SELFSTEAL_TEMPLATE_HTML_URL="https://raw.githubusercontent.com/tristondup2008-cmd/testcord-py/refs/heads/main/index.html"
-SSH_VAULT_FILE="${DIR_REMNAWAVE}ssh_vault"
 
 COLOR_RESET="\033[0m"
 COLOR_GREEN="\033[1;32m"
@@ -148,10 +147,9 @@ set_language() {
                 [MENU_4]="Extensions by distillium"
                 [MENU_5]="Manage IPv6"
                 [MENU_6]="Manage certificates domain"
-                [MENU_7]="Manage SSH keys (for automatic node setup)"
-                [MENU_8]="Remove script"
-                [PROMPT_ACTION]="Select action (0-8):"
-                [INVALID_CHOICE]="Invalid choice. Please select 0-8"
+                [MENU_7]="Remove script"
+                [PROMPT_ACTION]="Select action (0-7):"
+                [INVALID_CHOICE]="Invalid choice. Please select 0-7"
                 [WARNING_LABEL]="WARNING:"
                 [CONFIRM_PROMPT]="Enter 'y' to continue or 'n' to exit (y/n):"
                 [WARNING_NODE_PANEL]="Adding a node should only be done on the server where the panel is installed, not on the node server."
@@ -224,51 +222,12 @@ set_language() {
                 [INSTALL_PROMPT]="Select action (0-5):"
                 [INSTALL_INVALID_CHOICE]="Invalid choice. Please select 0-5."
                 [PANEL_ACCESS_MENU_TITLE]="Panel access on port 8443"
-                [SSH_MENU_TITLE]="Manage SSH private keys"
-                [SSH_MENU_LIST]="List saved keys"
-                [SSH_MENU_ADD]="Add key from file (path)"
-                [SSH_MENU_DELETE]="Delete key by number"
-                [SSH_MENU_RENAME]="Rename key"
-                [SSH_MENU_PROMPT]="Select action (0-4):"
-                [SSH_MENU_INVALID]="Invalid choice. Select 0-4."
-                [SSH_VAULT_EMPTY]="No SSH keys in vault. Add a key in the main menu (Manage SSH keys)."
-                [SSH_ENTER_NAME]="Key name (label):"
-                [SSH_ENTER_KEY_PATH]="Full path to private key on this server, OR the first line of the PEM (-----BEGIN ...):"
-                [SSH_PASTE_REST]="Paste the rest of the key, one line at a time, until the line with -----END ... PRIVATE KEY-----"
-                [SSH_ERR_PUTTY]="This looks like a PuTTY .ppk file. Install: apt-get install -y putty-tools"
-                [SSH_ERR_PUTTYGEN]="puttygen failed to convert .ppk to OpenSSH format."
-                [SSH_SAVED]="Key saved."
-                [SSH_ERR_NO_SSH_KEYGEN]="ssh-keygen not found. Install: apt-get install -y openssh-client"
-                [SSH_ERR_PATH_EMPTY]="Path is empty."
-                [SSH_ERR_NOT_FILE]="Not a regular file or path does not exist."
-                [SSH_ERR_NOT_READABLE]="File exists but is not readable (check permissions)."
-                [SSH_ERR_FILE_TOO_LARGE]="File is too large (max 1 MiB)."
-                [SSH_ERR_READ_FAILED]="Failed to read the file."
-                [SSH_ERR_FILE_EMPTY]="File is empty."
-                [SSH_ERR_NOT_PRIVATE_KEY]="File does not contain a PEM private key (expected a line like BEGIN ... PRIVATE KEY)."
-                [SSH_ERR_ENCRYPTED]="Encrypted private keys are not supported. Use an unencrypted key for automation or remove passphrase with ssh-keygen -p."
-                [SSH_ERR_BINARY_ENCODING]="Could not decode the key file as text (binary, null bytes, or unsupported encoding). Use a PEM/OpenSSH private key file, UTF-8 LF, or install python3 for UTF-16 from Windows editors."
-                [SSH_ERR_KEYGEN_REJECT]="Key rejected by ssh-keygen (corrupt format or unsupported type)."
-                [SSH_KEYGEN_STDERR]="Details from ssh-keygen:"
-                [SSH_HINT_WINDOWS_LINE_ENDINGS]="If you copied the key from Windows, the file may have had CRLF line endings — the script now strips them automatically; re-save the file as UTF-8 LF if problems remain."
-                [SSH_HINT_OPENSSH_LIBCRYPTO]="For keys with \"BEGIN OPENSSH PRIVATE KEY\", the message \"error in libcrypto\" usually means a passphrase-protected key (or a damaged file). This menu only accepts keys without a passphrase. Remove it on a trusted machine: ssh-keygen -p -f /path/to/key — enter the current passphrase, leave the new passphrase empty. Or create a separate key for automation without a passphrase."
-                [SSH_ERR_DUPLICATE_KEY]="The same private key is already in the vault (identical public key fingerprint)."
-                [SSH_ERR_NAME_EMPTY]="Key label cannot be empty."
-                [SSH_DELETED]="Key deleted."
-                [SSH_ENTER_NUMBER_DELETE]="Enter key number to delete:"
-                [SSH_ENTER_NUMBER_RENAME]="Enter key number to rename:"
-                [SSH_NEW_NAME]="New label:"
-                [SSH_LIST_HEADER]="Saved keys:"
-                [SSH_NO_KEYS_NUMBER]="No key with this number."
                 [AUTO_NODE_TITLE]="Automatic remote node setup"
-                [AUTO_NODE_SSH_HOST]="Remote host IP or hostname:"
+                [AUTO_NODE_SSH_HOST]="Future node server IPv4 address:"
+                [AUTO_NODE_SSH_HOST_INVALID]="Enter a valid IPv4 address (e.g. 203.0.113.10). Hostnames are not accepted here."
                 [AUTO_NODE_SSH_PORT]="SSH port [22]:"
-                [AUTO_NODE_SSH_USER]="SSH username:"
-                [AUTO_NODE_SSH_AUTH]="Auth: 1) Private key  2) Password"
-                [AUTO_NODE_SSH_AUTH_CHOICE]="Select 1 or 2:"
-                [AUTO_NODE_NO_KEYS_WAIT]="No keys in vault. Add keys via main menu → Manage SSH keys. Returning to main menu in 5 seconds..."
-                [AUTO_NODE_SELECT_KEY]="Select key number:"
-                [AUTO_NODE_SSH_PASS]="SSH password:"
+                [AUTO_NODE_SSH_USER]="SSH username (root):"
+                [AUTO_NODE_SSH_PASS]="SSH password for that user:"
                 [AUTO_NODE_SSH_TEST_OK]="SSH connection successful."
                 [AUTO_NODE_SSH_TEST_FAIL]="SSH connection or authentication failed."
                 [AUTO_NODE_REMOTE_STEP_FAIL]="Remote step failed:"
@@ -287,8 +246,6 @@ set_language() {
                 [AUTO_NODE_LOCAL_APT_SSHPASS_DETAIL]="Updating apt on this machine (panel/script host) to install sshpass — not on the remote node yet."
                 [AUTO_NODE_REMOTE_APT_DESC]="Remote node: apt-get update"
                 [AUTO_NODE_REMOTE_BBR_DESC]="Remote node: BBR + CAKE (sysctl)"
-                [AUTO_NODE_AUTH_DISP_KEY]="Private key from vault"
-                [AUTO_NODE_AUTH_DISP_PASS]="SSH password"
                 [INPUT_YOU_ENTERED]="You entered"
                 [INPUT_CORRECT_YN]="Correct? (y = yes, n = re-enter):"
                 [INPUT_ENTER_Y_N]="Please enter y or n."
@@ -636,10 +593,9 @@ set_language() {
                 [MENU_4]="Управление расширениями от distillium"
                 [MENU_5]="Управление IPv6"
                 [MENU_6]="Управление сертификатами домена"
-                [MENU_7]="Управление SSH-ключами (для авто-ноды)"
-                [MENU_8]="Удалить скрипт"
-                [PROMPT_ACTION]="Выберите действие (0-8):"
-                [INVALID_CHOICE]="Неверный выбор. Выберите 0-8."
+                [MENU_7]="Удалить скрипт"
+                [PROMPT_ACTION]="Выберите действие (0-7):"
+                [INVALID_CHOICE]="Неверный выбор. Выберите 0-7."
                 [WARNING_LABEL]="ВНИМАНИЕ:"
                 [CONFIRM_PROMPT]="Введите 'y' для продолжения или 'n' для выхода (y/n):"
                 [WARNING_NODE_PANEL]="Добавление ноды должно выполняться только на сервере, где установлена панель, а не на сервере ноды."
@@ -712,51 +668,12 @@ set_language() {
                 [INSTALL_PROMPT]="Выберите действие (0-5):"
                 [INSTALL_INVALID_CHOICE]="Неверный выбор. Выберите 0-5."
                 [PANEL_ACCESS_MENU_TITLE]="Доступ к панели через порт 8443"
-                [SSH_MENU_TITLE]="Управление SSH приватными ключами"
-                [SSH_MENU_LIST]="Список сохранённых ключей"
-                [SSH_MENU_ADD]="Добавить ключ из файла (путь)"
-                [SSH_MENU_DELETE]="Удалить ключ по номеру"
-                [SSH_MENU_RENAME]="Переименовать ключ"
-                [SSH_MENU_PROMPT]="Выберите действие (0-4):"
-                [SSH_MENU_INVALID]="Неверный выбор. Выберите 0-4."
-                [SSH_VAULT_EMPTY]="В хранилище нет SSH-ключей. Добавьте ключ: главное меню → Управление SSH-ключами."
-                [SSH_ENTER_NAME]="Имя (метка) ключа:"
-                [SSH_ENTER_KEY_PATH]="Путь к приватному ключу на сервере или первая строка PEM (-----BEGIN ...):"
-                [SSH_PASTE_REST]="Вставьте остальные строки ключа по одной, до строки -----END ... PRIVATE KEY-----"
-                [SSH_ERR_PUTTY]="Похоже на PuTTY .ppk. Установите: apt-get install -y putty-tools"
-                [SSH_ERR_PUTTYGEN]="puttygen не смог перевести .ppk в формат OpenSSH."
-                [SSH_SAVED]="Ключ сохранён."
-                [SSH_ERR_NO_SSH_KEYGEN]="Не найден ssh-keygen. Установите: apt-get install -y openssh-client"
-                [SSH_ERR_PATH_EMPTY]="Путь пустой."
-                [SSH_ERR_NOT_FILE]="Нет такого файла или это не обычный файл."
-                [SSH_ERR_NOT_READABLE]="Файл не читается (проверьте права)."
-                [SSH_ERR_FILE_TOO_LARGE]="Файл слишком большой (максимум 1 МиБ)."
-                [SSH_ERR_READ_FAILED]="Не удалось прочитать файл."
-                [SSH_ERR_FILE_EMPTY]="Файл пустой."
-                [SSH_ERR_NOT_PRIVATE_KEY]="В файле нет PEM приватного ключа (нужна строка вида BEGIN ... PRIVATE KEY)."
-                [SSH_ERR_ENCRYPTED]="Зашифрованные ключи не поддерживаются. Для автоматизации используйте ключ без пароля или снимите пароль: ssh-keygen -p."
-                [SSH_ERR_BINARY_ENCODING]="Не удалось прочитать файл ключа как текст (бинарник, нулевые байты или неизвестная кодировка). Нужен PEM/OpenSSH приватный ключ, UTF-8 с LF; для UTF-16 из Блокнота установите python3."
-                [SSH_ERR_KEYGEN_REJECT]="Ключ отклонён ssh-keygen (битый формат или неподдерживаемый тип)."
-                [SSH_KEYGEN_STDERR]="Сообщение ssh-keygen:"
-                [SSH_HINT_WINDOWS_LINE_ENDINGS]="Если ключ копировали с Windows, в файле могли быть окончания строк CRLF — скрипт их убирает; при необходимости пересохраните файл как UTF-8 с переводами LF."
-                [SSH_HINT_OPENSSH_LIBCRYPTO]="Для ключа с \"BEGIN OPENSSH PRIVATE KEY\" сообщение \"error in libcrypto\" чаще всего значит ключ с паролем (или повреждённый файл). Сюда можно добавить только ключ без пароля. Снимите пароль на доверенной машине: ssh-keygen -p -f /path/to/key — введите старый пароль, новый оставьте пустым. Либо создайте отдельный ключ для автоматизации без пароля."
-                [SSH_ERR_DUPLICATE_KEY]="Такой приватный ключ уже есть в хранилище (совпадает отпечаток публичного ключа)."
-                [SSH_ERR_NAME_EMPTY]="Метка ключа не может быть пустой."
-                [SSH_DELETED]="Ключ удалён."
-                [SSH_ENTER_NUMBER_DELETE]="Номер ключа для удаления:"
-                [SSH_ENTER_NUMBER_RENAME]="Номер ключа для переименования:"
-                [SSH_NEW_NAME]="Новая метка:"
-                [SSH_LIST_HEADER]="Сохранённые ключи:"
-                [SSH_NO_KEYS_NUMBER]="Нет ключа с таким номером."
                 [AUTO_NODE_TITLE]="Автоматическая настройка ноды по SSH"
-                [AUTO_NODE_SSH_HOST]="IP или hostname ноды:"
+                [AUTO_NODE_SSH_HOST]="IPv4-адрес сервера будущей ноды:"
+                [AUTO_NODE_SSH_HOST_INVALID]="Укажите корректный IPv4 (напр. 203.0.113.10). Имя хоста здесь не подходит — домен вводится позже."
                 [AUTO_NODE_SSH_PORT]="Порт SSH [22]:"
-                [AUTO_NODE_SSH_USER]="Имя пользователя SSH:"
-                [AUTO_NODE_SSH_AUTH]="Авторизация: 1) Ключ  2) Пароль"
-                [AUTO_NODE_SSH_AUTH_CHOICE]="Выберите 1 или 2:"
-                [AUTO_NODE_NO_KEYS_WAIT]="Нет ключей в хранилище. Добавьте ключи: главное меню → Управление SSH-ключами. Возврат в меню через 5 с..."
-                [AUTO_NODE_SELECT_KEY]="Номер ключа:"
-                [AUTO_NODE_SSH_PASS]="Пароль SSH:"
+                [AUTO_NODE_SSH_USER]="Пользователь SSH (обычно root):"
+                [AUTO_NODE_SSH_PASS]="Пароль этого пользователя для SSH:"
                 [AUTO_NODE_SSH_TEST_OK]="SSH: соединение и авторизация успешны."
                 [AUTO_NODE_SSH_TEST_FAIL]="SSH: ошибка соединения или авторизации."
                 [AUTO_NODE_REMOTE_STEP_FAIL]="Ошибка на удалённом шаге:"
@@ -775,8 +692,6 @@ set_language() {
                 [AUTO_NODE_LOCAL_APT_SSHPASS_DETAIL]="Обновление apt на этой машине (где запущен скрипт — обычно сервер панели), чтобы поставить sshpass. Это ещё не удалённая нода."
                 [AUTO_NODE_REMOTE_APT_DESC]="Удалённая нода: apt-get update"
                 [AUTO_NODE_REMOTE_BBR_DESC]="Удалённая нода: BBR + CAKE (sysctl)"
-                [AUTO_NODE_AUTH_DISP_KEY]="Ключ из хранилища"
-                [AUTO_NODE_AUTH_DISP_PASS]="Пароль SSH"
                 [INPUT_YOU_ENTERED]="Вы ввели"
                 [INPUT_CORRECT_YN]="Верно? (y — да, n — ввести заново):"
                 [INPUT_ENTER_Y_N]="Введите y или n."
@@ -1338,7 +1253,7 @@ update_remnawave_auto() {
 
 remove_script() {
     echo -e ""
-    echo -e "${COLOR_GREEN}${LANG[MENU_8]}${COLOR_RESET}"
+    echo -e "${COLOR_GREEN}${LANG[MENU_7]}${COLOR_RESET}"
     echo -e ""
     echo -e "${COLOR_YELLOW}1. ${LANG[REMOVE_SCRIPT_ONLY]}${COLOR_RESET}"
     echo -e "${COLOR_YELLOW}2. ${LANG[REMOVE_SCRIPT_AND_PANEL]}${COLOR_RESET}"
@@ -1560,8 +1475,7 @@ show_menu() {
     echo -e "${COLOR_YELLOW}4. ${LANG[MENU_4]}${COLOR_RESET}" # Extensions distillium
     echo -e "${COLOR_YELLOW}5. ${LANG[MENU_5]}${COLOR_RESET}" # Manage IPv6
     echo -e "${COLOR_YELLOW}6. ${LANG[MENU_6]}${COLOR_RESET}" # Manage certificates domain
-    echo -e "${COLOR_YELLOW}7. ${LANG[MENU_7]}${COLOR_RESET}" # SSH keys
-    echo -e "${COLOR_YELLOW}8. ${LANG[MENU_8]}${COLOR_RESET}" # Remove script
+    echo -e "${COLOR_YELLOW}7. ${LANG[MENU_7]}${COLOR_RESET}" # Remove script
     echo -e ""
     echo -e "${COLOR_YELLOW}0. ${LANG[EXIT]}${COLOR_RESET}"
     echo -e "${COLOR_YELLOW}- ${LANG[FAST_START]//remnawave_auto/${COLOR_GREEN}remnawave_auto${COLOR_RESET}}"
@@ -6000,394 +5914,6 @@ EOL
 }
 #Install Node
 
-### SSH vault (panel server only) ###
-ensure_ssh_vault() {
-    mkdir -p "$DIR_REMNAWAVE"
-    if [ ! -f "$SSH_VAULT_FILE" ]; then
-        : > "$SSH_VAULT_FILE"
-    fi
-    chmod 600 "$SSH_VAULT_FILE" 2>/dev/null || true
-}
-
-ssh_vault_append_key() {
-    local label="$1"
-    local pem="$2"
-    ensure_ssh_vault
-    local b64
-    if ! b64=$(printf '%s' "$pem" | base64 -w0 2>/dev/null); then
-        b64=$(printf '%s' "$pem" | base64)
-    fi
-    {
-        echo "###BEGIN###"
-        echo "NAME=${label}"
-        echo "B64=${b64}"
-        echo "###END###"
-    } >> "$SSH_VAULT_FILE"
-    chmod 600 "$SSH_VAULT_FILE"
-}
-
-# PEM copied from Windows/editors often has CRLF or UTF-8 BOM — ssh-keygen then fails on Linux
-ssh_normalize_private_key_material() {
-    local raw="$1"
-    local out
-    out=$(printf '%s' "$raw" | tr -d '\000\r')
-    if [[ ${#out} -ge 3 ]]; then
-        local a b c
-        a=$(printf '%d' "'${out:0:1}")
-        b=$(printf '%d' "'${out:1:1}")
-        c=$(printf '%d' "'${out:2:1}")
-        if [[ "$a" -eq 239 && "$b" -eq 187 && "$c" -eq 191 ]]; then
-            out="${out:3}"
-        fi
-    fi
-    [[ -n "$out" && "$out" != *$'\n' ]] && out="${out}"$'\n'
-    printf '%s' "$out"
-}
-
-# Public-key fingerprint (SHA256:...) from PEM material; stdout only on success
-ssh_vault_fingerprint_from_pem() {
-    local pem="$1"
-    pem=$(ssh_normalize_private_key_material "$pem")
-    local tf
-    tf=$(mktemp)
-    chmod 600 "$tf"
-    printf '%s' "$pem" > "$tf"
-    local fp
-    fp=$(ssh-keygen -y -f "$tf" </dev/null 2>/dev/null | ssh-keygen -lf - </dev/null 2>/dev/null | awk '{print $2}')
-    rm -f "$tf"
-    [[ -n "$fp" ]] || return 1
-    printf '%s' "$fp"
-    return 0
-}
-
-# Returns 0 if an entry in the vault has the same public key fingerprint
-ssh_vault_pem_is_duplicate() {
-    local new_pem="$1"
-    local new_fp n i b64 tf old_fp norm_old
-    new_fp=$(ssh_vault_fingerprint_from_pem "$new_pem") || return 1
-    n=$(ssh_vault_count)
-    for ((i = 1; i <= n; i++)); do
-        b64=$(ssh_vault_b64_by_index "$i") || continue
-        tf=$(mktemp)
-        chmod 600 "$tf"
-        if ! printf '%s' "$b64" | base64 -d > "$tf" 2>/dev/null; then
-            rm -f "$tf"
-            continue
-        fi
-        norm_old=$(ssh_normalize_private_key_material "$(<"$tf")")
-        printf '%s' "$norm_old" > "$tf"
-        chmod 600 "$tf"
-        old_fp=$(ssh-keygen -y -f "$tf" </dev/null 2>/dev/null | ssh-keygen -lf - </dev/null 2>/dev/null | awk '{print $2}')
-        rm -f "$tf"
-        [[ -n "$old_fp" && "$old_fp" == "$new_fp" ]] && return 0
-    done
-    return 1
-}
-
-# Reads private key file as UTF-8/LF text; decodes UTF-16 (BOM or PEM-shaped) like Notepad "Unicode".
-# Reshala-style importers use cp + ssh-keygen on disk; we need text for the vault, so we decode here.
-ssh_decode_private_key_file_to_text() {
-    local f="$1"
-    command -v python3 >/dev/null 2>&1 || return 1
-    python3 - "$f" <<'PY' || return 1
-import sys
-
-def strip_leading_ws_bytes(b: bytes) -> bytes:
-    i = 0
-    while i < len(b) and b[i : i + 1] in (b" ", b"\t", b"\n", b"\r"):
-        i += 1
-    return b[i:]
-
-def looks_utf16le_pem(s: bytes) -> bool:
-    s = strip_leading_ws_bytes(s)
-    if len(s) < 20:
-        return False
-    # "-----" in UTF-16-LE
-    if s[0:10:2] == b"-----" and all(s[i] == 0 for i in range(1, 10, 2)):
-        return True
-    return False
-
-def looks_utf16be_pem(s: bytes) -> bool:
-    s = strip_leading_ws_bytes(s)
-    if len(s) < 20:
-        return False
-    if s[1:11:2] == b"-----" and all(s[i] == 0 for i in range(0, 10, 2)):
-        return True
-    return False
-
-path = sys.argv[1]
-with open(path, "rb") as fp:
-    raw = fp.read()
-if not raw:
-    sys.exit(1)
-
-text = None
-try:
-    if raw.startswith(b"\xff\xfe"):
-        text = raw[2:].decode("utf-16-le")
-    elif raw.startswith(b"\xfe\xff"):
-        text = raw[2:].decode("utf-16-be")
-    elif raw.startswith(b"\xef\xbb\xbf"):
-        text = raw[3:].decode("utf-8")
-    elif looks_utf16le_pem(raw):
-        text = raw.decode("utf-16-le")
-    elif looks_utf16be_pem(raw):
-        text = raw.decode("utf-16-be")
-    elif b"\x00" in raw[: min(len(raw), 4096)]:
-        try:
-            text = raw.decode("utf-16-le")
-        except UnicodeError:
-            try:
-                text = raw.decode("utf-16-be")
-            except UnicodeError:
-                text = None
-        if text is None:
-            sys.exit(2)
-    else:
-        text = raw.decode("utf-8")
-except UnicodeError:
-    sys.exit(2)
-
-text = text.replace("\r\n", "\n").replace("\r", "\n")
-if "\x00" in text:
-    sys.exit(3)
-if "PRIVATE KEY" not in text or "BEGIN" not in text:
-    sys.exit(4)
-sys.stdout.write(text)
-PY
-}
-
-# Normalizes and validates PEM material; prints PEM to stdout on success.
-ssh_privkey_validate_stdout() {
-    local pem="$1"
-    pem=$(ssh_normalize_private_key_material "$pem")
-
-    if [[ -z "${pem//[$' \t\r\n']}" ]]; then
-        echo -e "${COLOR_RED}${LANG[SSH_ERR_FILE_EMPTY]}${COLOR_RESET}" >&2
-        return 1
-    fi
-
-    if ! grep -qE 'BEGIN[A-Z0-9 +_-]*PRIVATE KEY' <<<"$pem"; then
-        echo -e "${COLOR_RED}${LANG[SSH_ERR_NOT_PRIVATE_KEY]}${COLOR_RESET}" >&2
-        return 1
-    fi
-
-    if grep -qiE 'BEGIN ENCRYPTED PRIVATE KEY|Proc-Type:[[:space:]]*4,[[:space:]]*ENCRYPTED|^DEK-Info:' <<<"$pem"; then
-        echo -e "${COLOR_RED}${LANG[SSH_ERR_ENCRYPTED]}${COLOR_RESET}" >&2
-        return 1
-    fi
-
-    local tf kg_err
-    tf=$(mktemp)
-    kg_err=$(mktemp)
-    chmod 600 "$tf" "$kg_err"
-    printf '%s' "$pem" > "$tf"
-
-    if ! ssh-keygen -y -f "$tf" </dev/null >/dev/null 2>"$kg_err"; then
-        echo -e "${COLOR_RED}${LANG[SSH_ERR_KEYGEN_REJECT]}${COLOR_RESET}" >&2
-        if [[ -s "$kg_err" ]]; then
-            echo -e "${COLOR_GRAY}${LANG[SSH_KEYGEN_STDERR]}${COLOR_RESET}" >&2
-            sed 's/^/  /' "$kg_err" >&2
-        fi
-        if grep -q 'BEGIN OPENSSH PRIVATE KEY' <<<"$pem" && grep -qiF 'libcrypto' "$kg_err" 2>/dev/null; then
-            echo -e "${COLOR_GRAY}${LANG[SSH_HINT_OPENSSH_LIBCRYPTO]}${COLOR_RESET}" >&2
-        else
-            echo -e "${COLOR_GRAY}${LANG[SSH_HINT_WINDOWS_LINE_ENDINGS]}${COLOR_RESET}" >&2
-        fi
-        rm -f "$kg_err" "$tf"
-        return 1
-    fi
-    rm -f "$kg_err" "$tf"
-
-    printf '%s' "$pem"
-    return 0
-}
-
-# After first line -----BEGIN..., read remaining PEM lines from stdin until -----END...PRIVATE KEY-----
-ssh_read_pem_rest_from_stdin() {
-    local first="$1" pem line
-    first="${first//$'\r'/}"
-    pem="${first}"$'\n'
-    echo -e "${COLOR_GRAY}${LANG[SSH_PASTE_REST]}${COLOR_RESET}" >&2
-    while IFS= read -r line || [[ -n "$line" ]]; do
-        line="${line//$'\r'/}"
-        pem+="${line}"$'\n'
-        if [[ "$line" == -----END*PRIVATE*KEY-----* ]]; then
-            printf '%s' "$pem"
-            return 0
-        fi
-    done
-    echo -e "${COLOR_RED}${LANG[SSH_ERR_NOT_PRIVATE_KEY]}${COLOR_RESET}" >&2
-    return 1
-}
-
-# Reads and validates an unencrypted PEM private key; prints PEM to stdout on success
-ssh_load_private_key_from_path() {
-    local path="$1"
-
-    if ! command -v ssh-keygen >/dev/null 2>&1; then
-        echo -e "${COLOR_RED}${LANG[SSH_ERR_NO_SSH_KEYGEN]}${COLOR_RESET}" >&2
-        return 1
-    fi
-
-    path="${path/#\~/$HOME}"
-    path="${path#\"}"
-    path="${path%\"}"
-
-    if [[ -z "${path// }" ]]; then
-        echo -e "${COLOR_RED}${LANG[SSH_ERR_PATH_EMPTY]}${COLOR_RESET}" >&2
-        return 1
-    fi
-    if [[ ! -f "$path" ]]; then
-        echo -e "${COLOR_RED}${LANG[SSH_ERR_NOT_FILE]}${COLOR_RESET}" >&2
-        return 1
-    fi
-    if [[ ! -r "$path" ]]; then
-        echo -e "${COLOR_RED}${LANG[SSH_ERR_NOT_READABLE]}${COLOR_RESET}" >&2
-        return 1
-    fi
-
-    local max_bytes=1048576
-    local sz
-    sz=$(stat -c%s "$path" 2>/dev/null || stat -f%z "$path" 2>/dev/null || echo 0)
-    if [[ "${sz:-0}" -gt "$max_bytes" ]]; then
-        echo -e "${COLOR_RED}${LANG[SSH_ERR_FILE_TOO_LARGE]}${COLOR_RESET}" >&2
-        return 1
-    fi
-
-    local pem
-    if grep -q '^PuTTY-User-Key-File' "$path" 2>/dev/null; then
-        if ! command -v puttygen >/dev/null 2>&1; then
-            echo -e "${COLOR_RED}${LANG[SSH_ERR_PUTTY]}${COLOR_RESET}" >&2
-            return 1
-        fi
-        if ! pem=$(puttygen "$path" -O private-openssh -o - 2>/dev/null); then
-            echo -e "${COLOR_RED}${LANG[SSH_ERR_PUTTYGEN]}${COLOR_RESET}" >&2
-            return 1
-        fi
-    elif command -v python3 >/dev/null 2>&1 && pem=$(ssh_decode_private_key_file_to_text "$path" 2>/dev/null); then
-        :
-    elif ! pem=$(<"$path"); then
-        echo -e "${COLOR_RED}${LANG[SSH_ERR_READ_FAILED]}${COLOR_RESET}" >&2
-        return 1
-    else
-        if [[ "${pem:0:4096}" == *$'\0'* ]]; then
-            echo -e "${COLOR_RED}${LANG[SSH_ERR_BINARY_ENCODING]}${COLOR_RESET}" >&2
-            return 1
-        fi
-    fi
-
-    ssh_privkey_validate_stdout "$pem"
-}
-
-ssh_vault_list_labels() {
-    ensure_ssh_vault
-    local i=0
-    while IFS= read -r line; do
-        case "$line" in
-            NAME=*)
-                i=$((i + 1))
-                echo -e "${COLOR_WHITE}$i) ${line#NAME=}${COLOR_RESET}"
-                ;;
-        esac
-    done < "$SSH_VAULT_FILE"
-}
-
-ssh_vault_count() {
-    ensure_ssh_vault
-    local n
-    # grep -c prints 0 but exits 1 when there are no matches — do not use "|| echo 0" or stdout becomes "0\n0"
-    n=$(grep -c '^###BEGIN###$' "$SSH_VAULT_FILE" 2>/dev/null) || true
-    [[ -z "$n" ]] && n=0
-    echo "$n"
-}
-
-ssh_vault_b64_by_index() {
-    local want="$1"
-    local idx=0
-    local in=0
-    while IFS= read -r line; do
-        if [[ "$line" == "###BEGIN###" ]]; then
-            idx=$((idx + 1))
-            in=0
-            [[ "$idx" -eq "$want" ]] && in=1
-            continue
-        fi
-        if [[ "$line" == "###END###" ]]; then
-            in=0
-            continue
-        fi
-        if [[ "$in" -eq 1 && "$line" == B64=* ]]; then
-            echo "${line#B64=}"
-            return 0
-        fi
-    done < "$SSH_VAULT_FILE"
-    return 1
-}
-
-ssh_vault_write_temp_key() {
-    local index="$1"
-    local b64
-    if ! b64=$(ssh_vault_b64_by_index "$index"); then
-        return 1
-    fi
-    local tf
-    tf=$(mktemp)
-    chmod 600 "$tf"
-    if ! printf '%s' "$b64" | base64 -d > "$tf" 2>/dev/null; then
-        rm -f "$tf"
-        return 1
-    fi
-    echo "$tf"
-}
-
-ssh_vault_delete_index() {
-    local want="$1"
-    local tmp
-    tmp=$(mktemp)
-    local idx=0
-    local skip=0
-    while IFS= read -r line; do
-        if [[ "$line" == "###BEGIN###" ]]; then
-            idx=$((idx + 1))
-            if [[ "$idx" -eq "$want" ]]; then
-                skip=1
-                continue
-            else
-                skip=0
-            fi
-        fi
-        if [[ "$skip" -eq 1 && "$line" == "###END###" ]]; then
-            skip=0
-            continue
-        fi
-        if [[ "$skip" -eq 0 ]]; then
-            echo "$line" >> "$tmp"
-        fi
-    done < "$SSH_VAULT_FILE"
-    mv "$tmp" "$SSH_VAULT_FILE"
-    chmod 600 "$SSH_VAULT_FILE"
-}
-
-ssh_vault_rename_index() {
-    local want="$1"
-    local newname="$2"
-    local tmp
-    tmp=$(mktemp)
-    local idx=0
-    while IFS= read -r line; do
-        if [[ "$line" == "###BEGIN###" ]]; then
-            idx=$((idx + 1))
-        fi
-        if [[ "$idx" -eq "$want" && "$line" == NAME=* ]]; then
-            echo "NAME=${newname}" >> "$tmp"
-        else
-            echo "$line" >> "$tmp"
-        fi
-    done < "$SSH_VAULT_FILE"
-    mv "$tmp" "$SSH_VAULT_FILE"
-    chmod 600 "$SSH_VAULT_FILE"
-}
 
 remote_show_net_tuning() {
     echo "tcp_congestion_control=$(sysctl -n net.ipv4.tcp_congestion_control 2>/dev/null)"
@@ -6409,75 +5935,6 @@ remote_traffic_guard_base() {
 remote_traffic_guard_full() {
     command -v traffic-guard >/dev/null 2>&1 || curl -fsSL https://raw.githubusercontent.com/tristondup2008-cmd/traffic-guard/master/install.sh | bash
     traffic-guard full -u https://raw.githubusercontent.com/tristondup2008-cmd/traffic-guard/refs/heads/master/antiscanner.list.txt -u https://raw.githubusercontent.com/tristondup2008-cmd/traffic-guard/refs/heads/master/government_networks.list.txt -u https://raw.githubusercontent.com/tristondup2008-cmd/traffic-guard/refs/heads/master/skipa.list.txt --enable-logging
-}
-
-manage_ssh_keys_menu() {
-    while true; do
-        maybe_reexec_installed_script_if_disk_newer
-        echo -e ""
-        echo -e "${COLOR_GREEN}${LANG[SSH_MENU_TITLE]}${COLOR_RESET}"
-        echo -e "${COLOR_YELLOW}1. ${LANG[SSH_MENU_LIST]}${COLOR_RESET}"
-        echo -e "${COLOR_YELLOW}2. ${LANG[SSH_MENU_ADD]}${COLOR_RESET}"
-        echo -e "${COLOR_YELLOW}3. ${LANG[SSH_MENU_DELETE]}${COLOR_RESET}"
-        echo -e "${COLOR_YELLOW}4. ${LANG[SSH_MENU_RENAME]}${COLOR_RESET}"
-        echo -e "${COLOR_YELLOW}0. ${LANG[EXIT]}${COLOR_RESET}"
-        echo -e ""
-        reading "${LANG[SSH_MENU_PROMPT]}" sko
-        case "$sko" in
-            1)
-                echo -e "${COLOR_YELLOW}${LANG[SSH_LIST_HEADER]}${COLOR_RESET}"
-                ssh_vault_list_labels
-                ;;
-            2)
-                reading_with_confirm "${LANG[SSH_ENTER_NAME]}" skname plain ""
-                if [[ -z "${skname//[$' \t\r\n']}" ]]; then
-                    echo -e "${COLOR_RED}${LANG[SSH_ERR_NAME_EMPTY]}${COLOR_RESET}"
-                else
-                    reading_with_confirm "${LANG[SSH_ENTER_KEY_PATH]}" skpath plain ""
-                    local pem="" skt="${skpath//$'\r'/}"
-                    if [[ "$skt" =~ ^[[:space:]]*-----BEGIN ]]; then
-                        local _raw
-                        _raw=$(ssh_read_pem_rest_from_stdin "$skt") && pem=$(ssh_privkey_validate_stdout "$_raw")
-                    else
-                        pem=$(ssh_load_private_key_from_path "$skpath")
-                    fi
-                    if [[ -n "$pem" ]]; then
-                        if ssh_vault_pem_is_duplicate "$pem"; then
-                            echo -e "${COLOR_RED}${LANG[SSH_ERR_DUPLICATE_KEY]}${COLOR_RESET}"
-                        else
-                            ssh_vault_append_key "$skname" "$pem"
-                            echo -e "${COLOR_GREEN}${LANG[SSH_SAVED]}${COLOR_RESET}"
-                        fi
-                    fi
-                fi
-                ;;
-            3)
-                reading_with_confirm "${LANG[SSH_ENTER_NUMBER_DELETE]}" skd plain ""
-                if ! [[ "$skd" =~ ^[0-9]+$ ]] || [[ "$skd" -lt 1 ]] || [[ "$skd" -gt $(ssh_vault_count) ]]; then
-                    echo -e "${COLOR_RED}${LANG[SSH_NO_KEYS_NUMBER]}${COLOR_RESET}"
-                else
-                    ssh_vault_delete_index "$skd"
-                    echo -e "${COLOR_GREEN}${LANG[SSH_DELETED]}${COLOR_RESET}"
-                fi
-                ;;
-            4)
-                reading_with_confirm "${LANG[SSH_ENTER_NUMBER_RENAME]}" skr plain ""
-                if ! [[ "$skr" =~ ^[0-9]+$ ]] || [[ "$skr" -lt 1 ]] || [[ "$skr" -gt $(ssh_vault_count) ]]; then
-                    echo -e "${COLOR_RED}${LANG[SSH_NO_KEYS_NUMBER]}${COLOR_RESET}"
-                else
-                    reading_with_confirm "${LANG[SSH_NEW_NAME]}" skrn plain ""
-                    ssh_vault_rename_index "$skr" "$skrn"
-                    echo -e "${COLOR_GREEN}${LANG[SSH_SAVED]}${COLOR_RESET}"
-                fi
-                ;;
-            0)
-                return 0
-                ;;
-            *)
-                echo -e "${COLOR_YELLOW}${LANG[SSH_MENU_INVALID]}${COLOR_RESET}"
-                ;;
-        esac
-    done
 }
 
 detect_panel_public_ipv4() {
@@ -6591,6 +6048,15 @@ remote_enable_ipv6() {
     echo "IPv6 enabled: net.ipv6.conf.all.disable_ipv6=$cur (expect 0)"
 }
 
+# Returns 0 if $1 is IPv4 dotted decimal (each octet 0-255).
+auto_node_is_ipv4() {
+    local ip="$1"
+    [[ "$ip" =~ ^([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})\.([0-9]{1,3})$ ]] || return 1
+    local a="${BASH_REMATCH[1]}" b="${BASH_REMATCH[2]}" c="${BASH_REMATCH[3]}" d="${BASH_REMATCH[4]}"
+    (( a <= 255 && b <= 255 && c <= 255 && d <= 255 )) 2>/dev/null || return 1
+    return 0
+}
+
 manage_auto_remote_node() {
     local domain_url="127.0.0.1:3000"
     echo -e ""
@@ -6606,94 +6072,36 @@ manage_auto_remote_node() {
         return 0
     fi
 
-    reading_with_confirm "${LANG[AUTO_NODE_SSH_HOST]}" AN_SSH_HOST plain ""
+    local AN_SSH_HOST
+    while true; do
+        reading_with_confirm "${LANG[AUTO_NODE_SSH_HOST]}" AN_SSH_HOST plain ""
+        if auto_node_is_ipv4 "$AN_SSH_HOST"; then
+            break
+        fi
+        echo -e "${COLOR_RED}${LANG[AUTO_NODE_SSH_HOST_INVALID]}${COLOR_RESET}"
+    done
     reading_with_confirm "${LANG[AUTO_NODE_SSH_PORT]}" AN_SSH_PORT plain "${LANG[INPUT_EMPTY_MEANS_DEFAULT_PORT]}"
     [[ -z "$AN_SSH_PORT" ]] && AN_SSH_PORT=22
     reading_with_confirm "${LANG[AUTO_NODE_SSH_USER]}" AN_SSH_USER plain ""
 
-    local AN_AUTH
-    while true; do
-        echo -e "${COLOR_YELLOW}${LANG[AUTO_NODE_SSH_AUTH]}${COLOR_RESET}"
-        reading "${LANG[AUTO_NODE_SSH_AUTH_CHOICE]}" AN_AUTH
-        case "$AN_AUTH" in
-            1 | 2) ;;
-            *)
-                echo -e "${COLOR_RED}${LANG[INVALID_CHOICE]}${COLOR_RESET}"
-                continue
-                ;;
-        esac
-        local auth_disp
-        [[ "$AN_AUTH" == "1" ]] && auth_disp="${LANG[AUTO_NODE_AUTH_DISP_KEY]}" || auth_disp="${LANG[AUTO_NODE_AUTH_DISP_PASS]}"
-        echo -e "${COLOR_GRAY}${LANG[INPUT_YOU_ENTERED]}:${COLOR_RESET} ${COLOR_WHITE}${auth_disp}${COLOR_RESET}"
-        local ac
-        reading "${LANG[INPUT_CORRECT_YN]}" ac
-        case "$ac" in
-            y | Y) break ;;
-            n | N) continue ;;
-            *)
-                echo -e "${COLOR_YELLOW}${LANG[INPUT_ENTER_Y_N]}${COLOR_RESET}"
-                continue
-                ;;
-        esac
-    done
-
-    local AN_KEYFILE=""
     local AN_SSHPASS=""
-    if [[ "$AN_AUTH" == "1" ]]; then
-        local kc
-        kc=$(ssh_vault_count)
-        if [[ "${kc:-0}" -eq 0 ]]; then
-            echo -e "${COLOR_RED}${LANG[AUTO_NODE_NO_KEYS_WAIT]}${COLOR_RESET}"
-            sleep 5
-            return 1
-        fi
-        echo -e "${COLOR_YELLOW}${LANG[SSH_LIST_HEADER]}${COLOR_RESET}"
-        ssh_vault_list_labels
-        reading_with_confirm "${LANG[AUTO_NODE_SELECT_KEY]}" AN_KEYIDX plain ""
-        if ! AN_KEYFILE=$(ssh_vault_write_temp_key "$AN_KEYIDX"); then
-            echo -e "${COLOR_RED}${LANG[SSH_NO_KEYS_NUMBER]}${COLOR_RESET}"
-            return 1
-        fi
-    elif [[ "$AN_AUTH" == "2" ]]; then
-        reading_with_confirm "${LANG[AUTO_NODE_SSH_PASS]}" AN_SSHPASS secret ""
-        if ! command -v sshpass >/dev/null 2>&1; then
-            echo -e "${COLOR_YELLOW}${LANG[AUTO_NODE_NEED_SSHPASS]}${COLOR_RESET}"
-            echo -e "${COLOR_GRAY}${LANG[AUTO_NODE_LOCAL_APT_SSHPASS_DETAIL]}${COLOR_RESET}"
-            apt-get update -y && apt-get install -y sshpass || true
-        fi
+    reading_with_confirm "${LANG[AUTO_NODE_SSH_PASS]}" AN_SSHPASS secret ""
+    if ! command -v sshpass >/dev/null 2>&1; then
+        echo -e "${COLOR_YELLOW}${LANG[AUTO_NODE_NEED_SSHPASS]}${COLOR_RESET}"
+        echo -e "${COLOR_GRAY}${LANG[AUTO_NODE_LOCAL_APT_SSHPASS_DETAIL]}${COLOR_RESET}"
+        apt-get update -y && apt-get install -y sshpass || true
     fi
 
-    local -a AN_SSH_BASE=(ssh -p "$AN_SSH_PORT" -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile="${DIR_REMNAWAVE}ssh_known_hosts")
-    if [[ -n "$AN_KEYFILE" ]]; then
-        AN_SSH_BASE+=(-i "$AN_KEYFILE")
-    fi
-    AN_SSH_BASE+=("${AN_SSH_USER}@${AN_SSH_HOST}")
+    local -a AN_SSH_BASE=(sshpass -p "$AN_SSHPASS" ssh -p "$AN_SSH_PORT" -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile="${DIR_REMNAWAVE}ssh_known_hosts" "${AN_SSH_USER}@${AN_SSH_HOST}")
 
-    local ssh_test_cmd
-    if [[ -n "$AN_SSHPASS" ]]; then
-        ssh_test_cmd=(sshpass -p "$AN_SSHPASS" "${AN_SSH_BASE[@]}" "echo ok")
-    else
-        ssh_test_cmd=("${AN_SSH_BASE[@]}" "echo ok")
-    fi
-    if ! "${ssh_test_cmd[@]}" >/dev/null 2>&1; then
+    if ! "${AN_SSH_BASE[@]}" "echo ok" >/dev/null 2>&1; then
         echo -e "${COLOR_RED}${LANG[AUTO_NODE_SSH_TEST_FAIL]}${COLOR_RESET}"
-        [[ -n "$AN_KEYFILE" ]] && rm -f "$AN_KEYFILE"
         return 1
     fi
     echo -e "${COLOR_GREEN}${LANG[AUTO_NODE_SSH_TEST_OK]}${COLOR_RESET}"
-    [[ -n "$AN_KEYFILE" ]] && rm -f "$AN_KEYFILE"
 
     auto_ssh() {
-        if [[ "$AN_AUTH" == "2" ]]; then
-            sshpass -p "$AN_SSHPASS" ssh -p "$AN_SSH_PORT" -o ConnectTimeout=30 -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile="${DIR_REMNAWAVE}ssh_known_hosts" "${AN_SSH_USER}@${AN_SSH_HOST}" "$@"
-        else
-            local kf
-            kf=$(ssh_vault_write_temp_key "$AN_KEYIDX") || return 1
-            ssh -p "$AN_SSH_PORT" -o ConnectTimeout=30 -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile="${DIR_REMNAWAVE}ssh_known_hosts" -i "$kf" "${AN_SSH_USER}@${AN_SSH_HOST}" "$@"
-            local ec=$?
-            rm -f "$kf"
-            return $ec
-        fi
+        sshpass -p "$AN_SSHPASS" ssh -p "$AN_SSH_PORT" -o ConnectTimeout=30 -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile="${DIR_REMNAWAVE}ssh_known_hosts" "${AN_SSH_USER}@${AN_SSH_HOST}" "$@"
     }
 
     run_remote() {
@@ -7048,12 +6456,6 @@ case $OPTION in
         remnawave_auto
         ;;
     7)
-        manage_ssh_keys_menu
-        sleep 2
-        log_clear
-        remnawave_auto
-        ;;
-    8)
         remove_script
         ;;
     0)
