@@ -1,6 +1,6 @@
 #!/bin/bash
 
-SCRIPT_VERSION="3.3.18"
+SCRIPT_VERSION="3.3.34"
 UPDATE_AVAILABLE=false
 DIR_REMNAWAVE="/usr/local/remnawave_auto/"
 # Installed launcher (replaces upstream remnawave_reverse / rr): this file + symlink in /usr/local/bin
@@ -5974,50 +5974,26 @@ add_node_to_panel_api_sequence() {
 remote_install_docker_prereqs() {
     set -e
     export DEBIAN_FRONTEND=noninteractive
-    remote_apt_relax_background_jobs() {
-        # Fresh Ubuntu images often run apt-daily/unattended-upgrades right after first boot.
+    remote_apt_prepare() {
+        # On fresh VPS images these jobs can hold dpkg lock right after boot.
         systemctl stop apt-daily.service apt-daily-upgrade.service unattended-upgrades.service 2>/dev/null || true
         systemctl stop apt-daily.timer apt-daily-upgrade.timer 2>/dev/null || true
     }
-    remote_apt_lock_info() {
-        local pid=""
-        pid=$(fuser /var/lib/dpkg/lock-frontend 2>/dev/null | awk '{print $1}')
-        if [ -n "$pid" ]; then
-            echo "dpkg lock holder pid=$pid: $(ps -p "$pid" -o comm= 2>/dev/null)"
+    remote_apt_fix_lock_state() {
+        remote_apt_prepare
+        dpkg --configure -a >/dev/null 2>&1 || true
+        apt-get -o DPkg::Lock::Timeout=120 -f install -y >/dev/null 2>&1 || true
+    }
+    remote_apt() {
+        remote_apt_prepare
+        if apt-get -o DPkg::Lock::Timeout=120 "$@"; then
+            return 0
         fi
+        echo "apt-get failed, attempting lock/state recovery..."
+        remote_apt_fix_lock_state
+        apt-get -o DPkg::Lock::Timeout=120 "$@"
     }
-    remote_apt_wait_unlock() {
-        local waited=0
-        remote_apt_relax_background_jobs
-        while pgrep -x apt >/dev/null 2>&1 || pgrep -x apt-get >/dev/null 2>&1 || pgrep -x dpkg >/dev/null 2>&1 || pgrep -f unattended-upgrade >/dev/null 2>&1; do
-            echo "apt/dpkg lock is busy, waiting (${waited}s)..."
-            remote_apt_lock_info || true
-            sleep 3
-            waited=$((waited + 3))
-            if [ "$waited" -eq 30 ]; then
-                echo "trying to stop background apt services again..."
-                remote_apt_relax_background_jobs
-            fi
-            if [ "$waited" -ge 300 ]; then
-                echo "apt/dpkg lock still busy after ${waited}s; trying apt-get anyway."
-                break
-            fi
-        done
-    }
-    remote_apt_retry() {
-        local tries=20 i rc=0
-        for ((i = 1; i <= tries; i++)); do
-            remote_apt_wait_unlock
-            if apt-get "$@"; then
-                return 0
-            fi
-            rc=$?
-            echo "apt-get failed (attempt $i/$tries, rc=$rc). Retrying..."
-            sleep 6
-        done
-        return "$rc"
-    }
-    remote_apt_retry install -y ca-certificates curl jq ufw wget gnupg unzip nano dialog git certbot python3-certbot-dns-cloudflare dnsutils coreutils grep gawk python3-pip openssh-client sshpass || true
+    remote_apt install -y ca-certificates curl jq ufw wget gnupg unzip nano dialog git certbot python3-certbot-dns-cloudflare dnsutils coreutils grep gawk python3-pip openssh-client sshpass || true
     if command -v pip >/dev/null 2>&1; then
         pip install --break-system-packages certbot-dns-gcore >/dev/null 2>&1 || true
     fi
@@ -6032,8 +6008,8 @@ remote_install_docker_prereqs() {
         chmod a+r /etc/apt/keyrings/docker.asc
         echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/debian $(. /etc/os-release && echo "$VERSION_CODENAME") stable" > /etc/apt/sources.list.d/docker.list
     fi
-    remote_apt_retry update -y
-    remote_apt_retry install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+    remote_apt update -y
+    remote_apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
     systemctl enable --now docker
     if ! docker info >/dev/null 2>&1; then
         exit 1
@@ -6167,39 +6143,13 @@ manage_auto_remote_node() {
         'export DEBIAN_FRONTEND=noninteractive' \
         'systemctl stop apt-daily.service apt-daily-upgrade.service unattended-upgrades.service 2>/dev/null || true' \
         'systemctl stop apt-daily.timer apt-daily-upgrade.timer 2>/dev/null || true' \
-        'for i in $(seq 1 20); do' \
-        '  waited=0' \
-        '  while pgrep -x apt >/dev/null 2>&1 || pgrep -x apt-get >/dev/null 2>&1 || pgrep -x dpkg >/dev/null 2>&1 || pgrep -f unattended-upgrade >/dev/null 2>&1; do' \
-        '    echo "apt/dpkg lock busy before apt-get update (${waited}s), waiting..."' \
-        '    sleep 3' \
-        '    waited=$((waited + 3))' \
-        '    if [ "$waited" -eq 30 ]; then systemctl stop apt-daily.service apt-daily-upgrade.service unattended-upgrades.service 2>/dev/null || true; systemctl stop apt-daily.timer apt-daily-upgrade.timer 2>/dev/null || true; fi' \
-        '    [ "$waited" -ge 300 ] && echo "lock still busy after ${waited}s; trying apt-get update anyway." && break' \
-        '  done' \
-        '  apt-get update -y && exit 0' \
-        '  echo "apt-get update failed on attempt $i/20; retrying..."' \
-        '  sleep 6' \
-        'done' \
-        'exit 1')"; then return 1; fi
+        'apt-get -o DPkg::Lock::Timeout=120 update -y || { dpkg --configure -a || true; apt-get -o DPkg::Lock::Timeout=120 -f install -y || true; apt-get -o DPkg::Lock::Timeout=120 update -y; }')"; then return 1; fi
     if ! run_remote "traffic-guard" "$(printf '%s\n' 'curl -fsSL https://raw.githubusercontent.com/tristondup2008-cmd/traffic-guard/master/install.sh | bash')"; then return 1; fi
     if ! run_remote "ufw fail2ban" "$(printf '%s\n' \
         'export DEBIAN_FRONTEND=noninteractive' \
         'systemctl stop apt-daily.service apt-daily-upgrade.service unattended-upgrades.service 2>/dev/null || true' \
         'systemctl stop apt-daily.timer apt-daily-upgrade.timer 2>/dev/null || true' \
-        'for i in $(seq 1 20); do' \
-        '  waited=0' \
-        '  while pgrep -x apt >/dev/null 2>&1 || pgrep -x apt-get >/dev/null 2>&1 || pgrep -x dpkg >/dev/null 2>&1 || pgrep -f unattended-upgrade >/dev/null 2>&1; do' \
-        '    echo "apt/dpkg lock busy before apt-get install (${waited}s), waiting..."' \
-        '    sleep 3' \
-        '    waited=$((waited + 3))' \
-        '    if [ "$waited" -eq 30 ]; then systemctl stop apt-daily.service apt-daily-upgrade.service unattended-upgrades.service 2>/dev/null || true; systemctl stop apt-daily.timer apt-daily-upgrade.timer 2>/dev/null || true; fi' \
-        '    [ "$waited" -ge 300 ] && echo "lock still busy after ${waited}s; trying apt-get install anyway." && break' \
-        '  done' \
-        '  apt-get install -y ufw fail2ban && exit 0' \
-        '  echo "apt-get install failed on attempt $i/20; retrying..."' \
-        '  sleep 6' \
-        'done' \
-        'exit 1')"; then return 1; fi
+        'apt-get -o DPkg::Lock::Timeout=120 install -y ufw fail2ban || { dpkg --configure -a || true; apt-get -o DPkg::Lock::Timeout=120 -f install -y || true; apt-get -o DPkg::Lock::Timeout=120 install -y ufw fail2ban; }')"; then return 1; fi
     if ! run_remote "ufw rules" "$(printf '%s\n' 'ufw allow 22/tcp || true' 'ufw allow 80/tcp || true' 'ufw allow 443/tcp || true')"; then return 1; fi
     if ! run_remote "traffic-guard full" "traffic-guard full -u https://raw.githubusercontent.com/shadow-netlab/traffic-guard-lists/refs/heads/main/public/antiscanner.list -u https://raw.githubusercontent.com/shadow-netlab/traffic-guard-lists/26929c9db71443a18c4369299ba60673a792c2ac/public/government_networks.list -u https://raw.githubusercontent.com/shadow-netlab/traffic-guard-lists/refs/heads/main/public/skipa.list --enable-logging"; then return 1; fi
     auto_ssh "ufw status verbose" || true
