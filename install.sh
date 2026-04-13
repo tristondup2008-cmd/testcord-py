@@ -1,6 +1,6 @@
 #!/bin/bash
 
-SCRIPT_VERSION="3.3.15"
+SCRIPT_VERSION="3.3.16"
 UPDATE_AVAILABLE=false
 DIR_REMNAWAVE="/usr/local/remnawave_auto/"
 # Installed launcher (replaces upstream remnawave_reverse / rr): this file + symlink in /usr/local/bin
@@ -5974,10 +5974,18 @@ add_node_to_panel_api_sequence() {
 remote_install_docker_prereqs() {
     set -e
     export DEBIAN_FRONTEND=noninteractive
+    remote_apt_lock_info() {
+        local pid=""
+        pid=$(fuser /var/lib/dpkg/lock-frontend 2>/dev/null | awk '{print $1}')
+        if [ -n "$pid" ]; then
+            echo "dpkg lock holder pid=$pid: $(ps -p "$pid" -o comm= 2>/dev/null)"
+        fi
+    }
     remote_apt_wait_unlock() {
         local waited=0
         while pgrep -x apt >/dev/null 2>&1 || pgrep -x apt-get >/dev/null 2>&1 || pgrep -x dpkg >/dev/null 2>&1 || pgrep -f unattended-upgrade >/dev/null 2>&1; do
             echo "apt/dpkg lock is busy, waiting (${waited}s)..."
+            remote_apt_lock_info || true
             sleep 3
             waited=$((waited + 3))
             if [ "$waited" -ge 300 ]; then
