@@ -1,6 +1,6 @@
 #!/bin/bash
 
-SCRIPT_VERSION="3.3.16"
+SCRIPT_VERSION="3.3.17"
 UPDATE_AVAILABLE=false
 DIR_REMNAWAVE="/usr/local/remnawave_auto/"
 # Installed launcher (replaces upstream remnawave_reverse / rr): this file + symlink in /usr/local/bin
@@ -5974,6 +5974,11 @@ add_node_to_panel_api_sequence() {
 remote_install_docker_prereqs() {
     set -e
     export DEBIAN_FRONTEND=noninteractive
+    remote_apt_relax_background_jobs() {
+        # Fresh Ubuntu images often run apt-daily/unattended-upgrades right after first boot.
+        systemctl stop apt-daily.service apt-daily-upgrade.service unattended-upgrades.service 2>/dev/null || true
+        systemctl stop apt-daily.timer apt-daily-upgrade.timer 2>/dev/null || true
+    }
     remote_apt_lock_info() {
         local pid=""
         pid=$(fuser /var/lib/dpkg/lock-frontend 2>/dev/null | awk '{print $1}')
@@ -5983,11 +5988,16 @@ remote_install_docker_prereqs() {
     }
     remote_apt_wait_unlock() {
         local waited=0
+        remote_apt_relax_background_jobs
         while pgrep -x apt >/dev/null 2>&1 || pgrep -x apt-get >/dev/null 2>&1 || pgrep -x dpkg >/dev/null 2>&1 || pgrep -f unattended-upgrade >/dev/null 2>&1; do
             echo "apt/dpkg lock is busy, waiting (${waited}s)..."
             remote_apt_lock_info || true
             sleep 3
             waited=$((waited + 3))
+            if [ "$waited" -eq 30 ]; then
+                echo "trying to stop background apt services again..."
+                remote_apt_relax_background_jobs
+            fi
             if [ "$waited" -ge 300 ]; then
                 echo "apt/dpkg lock still busy after ${waited}s; trying apt-get anyway."
                 break
@@ -6155,12 +6165,15 @@ manage_auto_remote_node() {
 
     if ! run_remote "${LANG[AUTO_NODE_REMOTE_APT_DESC]}" "$(printf '%s\n' \
         'export DEBIAN_FRONTEND=noninteractive' \
+        'systemctl stop apt-daily.service apt-daily-upgrade.service unattended-upgrades.service 2>/dev/null || true' \
+        'systemctl stop apt-daily.timer apt-daily-upgrade.timer 2>/dev/null || true' \
         'for i in $(seq 1 20); do' \
         '  waited=0' \
         '  while pgrep -x apt >/dev/null 2>&1 || pgrep -x apt-get >/dev/null 2>&1 || pgrep -x dpkg >/dev/null 2>&1 || pgrep -f unattended-upgrade >/dev/null 2>&1; do' \
         '    echo "apt/dpkg lock busy before apt-get update (${waited}s), waiting..."' \
         '    sleep 3' \
         '    waited=$((waited + 3))' \
+        '    if [ "$waited" -eq 30 ]; then systemctl stop apt-daily.service apt-daily-upgrade.service unattended-upgrades.service 2>/dev/null || true; systemctl stop apt-daily.timer apt-daily-upgrade.timer 2>/dev/null || true; fi' \
         '    [ "$waited" -ge 300 ] && echo "lock still busy after ${waited}s; trying apt-get update anyway." && break' \
         '  done' \
         '  apt-get update -y && exit 0' \
@@ -6171,12 +6184,15 @@ manage_auto_remote_node() {
     if ! run_remote "traffic-guard" "$(printf '%s\n' 'curl -fsSL https://raw.githubusercontent.com/tristondup2008-cmd/traffic-guard/master/install.sh | bash')"; then return 1; fi
     if ! run_remote "ufw fail2ban" "$(printf '%s\n' \
         'export DEBIAN_FRONTEND=noninteractive' \
+        'systemctl stop apt-daily.service apt-daily-upgrade.service unattended-upgrades.service 2>/dev/null || true' \
+        'systemctl stop apt-daily.timer apt-daily-upgrade.timer 2>/dev/null || true' \
         'for i in $(seq 1 20); do' \
         '  waited=0' \
         '  while pgrep -x apt >/dev/null 2>&1 || pgrep -x apt-get >/dev/null 2>&1 || pgrep -x dpkg >/dev/null 2>&1 || pgrep -f unattended-upgrade >/dev/null 2>&1; do' \
         '    echo "apt/dpkg lock busy before apt-get install (${waited}s), waiting..."' \
         '    sleep 3' \
         '    waited=$((waited + 3))' \
+        '    if [ "$waited" -eq 30 ]; then systemctl stop apt-daily.service apt-daily-upgrade.service unattended-upgrades.service 2>/dev/null || true; systemctl stop apt-daily.timer apt-daily-upgrade.timer 2>/dev/null || true; fi' \
         '    [ "$waited" -ge 300 ] && echo "lock still busy after ${waited}s; trying apt-get install anyway." && break' \
         '  done' \
         '  apt-get install -y ufw fail2ban && exit 0' \
