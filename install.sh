@@ -1,6 +1,6 @@
 #!/bin/bash
 
-SCRIPT_VERSION="3.3.10"
+SCRIPT_VERSION="3.3.12"
 UPDATE_AVAILABLE=false
 DIR_REMNAWAVE="/usr/local/remnawave_auto/"
 # Installed launcher (replaces upstream remnawave_reverse / rr): this file + symlink in /usr/local/bin
@@ -13,7 +13,6 @@ SCRIPT_URL="https://raw.githubusercontent.com/tristondup2008-cmd/testcord-py/ref
 # Raw GitHub URL to a single .html file used as self-steal landing on auto-provisioned nodes (required for automatic node setup)
 SELFSTEAL_TEMPLATE_HTML_URL="https://raw.githubusercontent.com/tristondup2008-cmd/testcord-py/refs/heads/main/index.html"
 SSH_VAULT_FILE="${DIR_REMNAWAVE}ssh_vault"
-FLEET_SERVERS_FILE="${DIR_REMNAWAVE}fleet_servers"
 
 COLOR_RESET="\033[0m"
 COLOR_GREEN="\033[1;32m"
@@ -151,9 +150,8 @@ set_language() {
                 [MENU_6]="Manage certificates domain"
                 [MENU_7]="Manage SSH keys (for automatic node setup)"
                 [MENU_8]="Remove script"
-                [MENU_9]="Fleet: remote servers (SSH, BBR+CAKE, IPv6, upgrades, traffic-guard)"
-                [PROMPT_ACTION]="Select action (0-9):"
-                [INVALID_CHOICE]="Invalid choice. Please select 0-9"
+                [PROMPT_ACTION]="Select action (0-8):"
+                [INVALID_CHOICE]="Invalid choice. Please select 0-8"
                 [WARNING_LABEL]="WARNING:"
                 [CONFIRM_PROMPT]="Enter 'y' to continue or 'n' to exit (y/n):"
                 [WARNING_NODE_PANEL]="Adding a node should only be done on the server where the panel is installed, not on the node server."
@@ -249,7 +247,7 @@ set_language() {
                 [SSH_ERR_FILE_EMPTY]="File is empty."
                 [SSH_ERR_NOT_PRIVATE_KEY]="File does not contain a PEM private key (expected a line like BEGIN ... PRIVATE KEY)."
                 [SSH_ERR_ENCRYPTED]="Encrypted private keys are not supported. Use an unencrypted key for automation or remove passphrase with ssh-keygen -p."
-                [SSH_ERR_BINARY_ENCODING]="Could not decode the key file as text (binary or unsupported encoding). Save as UTF-8 (LF), or install python3 — the script can auto-convert UTF-16 from Windows editors."
+                [SSH_ERR_BINARY_ENCODING]="Could not decode the key file as text (binary, null bytes, or unsupported encoding). Use a PEM/OpenSSH private key file, UTF-8 LF, or install python3 for UTF-16 from Windows editors."
                 [SSH_ERR_KEYGEN_REJECT]="Key rejected by ssh-keygen (corrupt format or unsupported type)."
                 [SSH_KEYGEN_STDERR]="Details from ssh-keygen:"
                 [SSH_HINT_WINDOWS_LINE_ENDINGS]="If you copied the key from Windows, the file may have had CRLF line endings — the script now strips them automatically; re-save the file as UTF-8 LF if problems remain."
@@ -288,6 +286,7 @@ set_language() {
                 [AUTO_NODE_NEED_SSHPASS]="Installing sshpass for non-interactive SSH password auth..."
                 [AUTO_NODE_LOCAL_APT_SSHPASS_DETAIL]="Updating apt on this machine (panel/script host) to install sshpass — not on the remote node yet."
                 [AUTO_NODE_REMOTE_APT_DESC]="Remote node: apt-get update"
+                [AUTO_NODE_REMOTE_BBR_DESC]="Remote node: BBR + CAKE (sysctl)"
                 [AUTO_NODE_AUTH_DISP_KEY]="Private key from vault"
                 [AUTO_NODE_AUTH_DISP_PASS]="SSH password"
                 [INPUT_YOU_ENTERED]="You entered"
@@ -306,70 +305,6 @@ set_language() {
                 [SQUAD_NONE_SELECTED]="Skipping squad attachment (inbound not added to any squad)."
                 [SQUAD_API_FAIL]="Could not load squads from the panel API."
                 [IPV6_REMOTE_VERIFY]="After disable: net.ipv6.conf.all.disable_ipv6 = %s (1 = IPv6 off)"
-                [FLEET_MENU_TITLE]="Fleet — remote servers"
-                [FLEET_MENU_LIST]="List servers & check SSH"
-                [FLEET_MENU_ADD]="Add server"
-                [FLEET_MENU_DEL]="Remove server by number"
-                [FLEET_MENU_SHELL]="Open interactive shell on server (type exit to return)"
-                [FLEET_MENU_SERVER_ACTIONS]="Per-server actions (pick number first)"
-                [FLEET_MENU_REBOOT_ALL]="Reboot ALL servers now"
-                [FLEET_MENU_DIST_ALL]="dist-upgrade on ALL servers"
-                [FLEET_MENU_PASS]="Set / change saved SSH password (password-auth servers only)"
-                [FLEET_MENU_PROMPT]="Choice (0 = back):"
-                [FLEET_PASS_STORAGE_WARN]="Saved passwords are stored only as base64 on this machine (${DIR_REMNAWAVE}fleet_servers, chmod 600), not encrypted. Anyone with root here can read them."
-                [FLEET_PASS_ONLY_P]="This server is not using password auth (expected auth field \"p\")."
-                [FLEET_PASS_SET_NEW]="Set new saved password"
-                [FLEET_PASS_CLEAR]="Clear saved password (ask every time)"
-                [FLEET_PASS_SUBPROMPT]="Action (0 = cancel):"
-                [FLEET_PASS_NEW_PROMPT]="New SSH password for this server:"
-                [FLEET_PASS_UPDATED]="Saved password updated."
-                [FLEET_PASS_CLEARED]="Saved password removed; you will be prompted on each SSH."
-                [FLEET_PASS_NONEMPTY]="Password cannot be empty."
-                [FLEET_ADD_SSH_PASS]="SSH password (required — saved on this panel for fleet; stored as base64 in fleet_servers):"
-                [FLEET_EMPTY]="No servers in fleet. Add one first."
-                [FLEET_ADD_NAME]="Server label:"
-                [FLEET_ADD_USER]="SSH user (root recommended):"
-                [FLEET_ADD_HOST]="Host IP or hostname:"
-                [FLEET_ADD_PORT]="SSH port [22]:"
-                [FLEET_ADD_AUTH]="Auth: 1) SSH vault key index  2) Password (saved on this host for fleet)"
-                [FLEET_SAVED]="Server saved."
-                [FLEET_REMOVED]="Removed."
-                [FLEET_PICK_NUM]="Server number:"
-                [FLEET_SSH_FAIL]="SSH command failed for this server."
-                [FLEET_SUB_BBR]="BBR + CAKE status / apply"
-                [FLEET_SUB_IPV6]="IPv6 status / disable / enable"
-                [FLEET_SUB_REBOOT]="Reboot server"
-                [FLEET_SUB_DIST]="apt-get dist-upgrade"
-                [FLEET_SUB_TG_BASE]="traffic-guard: blocklists (install only)"
-                [FLEET_SUB_TG_FULL]="traffic-guard: full blocklist rules"
-                [FLEET_SUB_SHAPER]="Per-user port speed limit (nftables, each client IP)"
-                [FLEET_SUB_PROMPT]="Action (0 = back):"
-                [FLEET_SHAPER_TITLE]="Port speed shaper (per client IP)"
-                [FLEET_SHAPER_EXPLAIN]="TCP only. Each client IP gets its own meter: download = traffic leaving the server with tcp sport = port; upload = traffic entering the server with tcp dport = port. Table inet remna_shaper. May conflict with other nft rules; meant for host-network nodes."
-                [FLEET_SHAPER_BAD_PORTS]="No valid TCP port numbers (1–65535)."
-                [FLEET_SHAPER_1]="Show current rules"
-                [FLEET_SHAPER_2]="Apply / replace limits"
-                [FLEET_SHAPER_3]="Remove table remna_shaper"
-                [FLEET_SHAPER_PORTS]="TCP ports (comma-separated, e.g. 2222,443):"
-                [FLEET_SHAPER_DOWN]="Download limit per client IP (Mbit/s, 0 = do not limit download):"
-                [FLEET_SHAPER_UP]="Upload limit per client IP (Mbit/s, 0 = do not limit upload):"
-                [FLEET_SHAPER_CONFIRM]="Apply these limits on THIS server? (y/n):"
-                [FLEET_SHAPER_NONE]="(not configured)"
-                [FLEET_SHAPER_NEED_RATE]="Set download and/or upload limit greater than 0 Mbit/s."
-                [FLEET_REBOOT_ALL_WARN]="Reboot ALL fleet servers? (y/n):"
-                [FLEET_DIST_ALL_WARN]="Run dist-upgrade on ALL fleet servers? (y/n):"
-                [FLEET_SHELL_HINT]="Remote shell — type exit or Ctrl+D to return to the menu."
-                [FLEET_APPLY_BBR_CONFIRM]="Apply BBR + CAKE on this server? (y/n):"
-                [FLEET_BBR_ALREADY]="BBR + CAKE already active (tcp=bbr, default_qdisc includes cake)."
-                [FLEET_BBR_REAPPLY_YN]="Re-apply BBR + CAKE in sysctl anyway? (y/n):"
-                [FLEET_IPV6_STATE_LINE]="net.ipv6.conf.all.disable_ipv6=%s (1 = IPv6 off, 0 = on)"
-                [FLEET_IPV6_OFF_HINT]="IPv6 is off. You can enable it below; disable is not needed."
-                [FLEET_IPV6_ON_HINT]="IPv6 is on. You can disable it below; enable is not needed."
-                [FLEET_IPV6_ENABLE_YN]="Enable IPv6 on this server? (y/n):"
-                [FLEET_IPV6_DISABLE_YN]="Disable IPv6 on this server? (y/n):"
-                [FLEET_IPV6_FALLBACK]="Could not read state. 1) disable IPv6  2) enable  0) cancel:"
-                [FLEET_IPV6_SUB]="IPv6 action (1 = disable, 2 = enable):"
-                [FLEET_REBOOT_ONE]="Confirm reboot this server? (y/n):"
                 #Manage IPv6
                 [IPV6_MENU_TITLE]="Manage IPv6"
                 [IPV6_ENABLE]="Enable IPv6"
@@ -703,9 +638,8 @@ set_language() {
                 [MENU_6]="Управление сертификатами домена"
                 [MENU_7]="Управление SSH-ключами (для авто-ноды)"
                 [MENU_8]="Удалить скрипт"
-                [MENU_9]="Флот: удалённые серверы (SSH, BBR+CAKE, IPv6, обновления, traffic-guard)"
-                [PROMPT_ACTION]="Выберите действие (0-9):"
-                [INVALID_CHOICE]="Неверный выбор. Выберите 0-9."
+                [PROMPT_ACTION]="Выберите действие (0-8):"
+                [INVALID_CHOICE]="Неверный выбор. Выберите 0-8."
                 [WARNING_LABEL]="ВНИМАНИЕ:"
                 [CONFIRM_PROMPT]="Введите 'y' для продолжения или 'n' для выхода (y/n):"
                 [WARNING_NODE_PANEL]="Добавление ноды должно выполняться только на сервере, где установлена панель, а не на сервере ноды."
@@ -801,7 +735,7 @@ set_language() {
                 [SSH_ERR_FILE_EMPTY]="Файл пустой."
                 [SSH_ERR_NOT_PRIVATE_KEY]="В файле нет PEM приватного ключа (нужна строка вида BEGIN ... PRIVATE KEY)."
                 [SSH_ERR_ENCRYPTED]="Зашифрованные ключи не поддерживаются. Для автоматизации используйте ключ без пароля или снимите пароль: ssh-keygen -p."
-                [SSH_ERR_BINARY_ENCODING]="Не удалось прочитать файл ключа как текст (бинарник или неизвестная кодировка). Сохраните как UTF-8 (LF) или установите python3 — скрипт сам переведёт UTF-16 из Блокнота Windows."
+                [SSH_ERR_BINARY_ENCODING]="Не удалось прочитать файл ключа как текст (бинарник, нулевые байты или неизвестная кодировка). Нужен PEM/OpenSSH приватный ключ, UTF-8 с LF; для UTF-16 из Блокнота установите python3."
                 [SSH_ERR_KEYGEN_REJECT]="Ключ отклонён ssh-keygen (битый формат или неподдерживаемый тип)."
                 [SSH_KEYGEN_STDERR]="Сообщение ssh-keygen:"
                 [SSH_HINT_WINDOWS_LINE_ENDINGS]="Если ключ копировали с Windows, в файле могли быть окончания строк CRLF — скрипт их убирает; при необходимости пересохраните файл как UTF-8 с переводами LF."
@@ -840,6 +774,7 @@ set_language() {
                 [AUTO_NODE_NEED_SSHPASS]="Устанавливаю sshpass для SSH по паролю..."
                 [AUTO_NODE_LOCAL_APT_SSHPASS_DETAIL]="Обновление apt на этой машине (где запущен скрипт — обычно сервер панели), чтобы поставить sshpass. Это ещё не удалённая нода."
                 [AUTO_NODE_REMOTE_APT_DESC]="Удалённая нода: apt-get update"
+                [AUTO_NODE_REMOTE_BBR_DESC]="Удалённая нода: BBR + CAKE (sysctl)"
                 [AUTO_NODE_AUTH_DISP_KEY]="Ключ из хранилища"
                 [AUTO_NODE_AUTH_DISP_PASS]="Пароль SSH"
                 [INPUT_YOU_ENTERED]="Вы ввели"
@@ -858,70 +793,6 @@ set_language() {
                 [SQUAD_NONE_SELECTED]="Пропуск привязки к сквадам (inbound ни к одному скваду не добавлен)."
                 [SQUAD_API_FAIL]="Не удалось загрузить сквады через API панели."
                 [IPV6_REMOTE_VERIFY]="После отключения: net.ipv6.conf.all.disable_ipv6 = %s (1 = IPv6 выкл.)"
-                [FLEET_MENU_TITLE]="Флот — удалённые серверы"
-                [FLEET_MENU_LIST]="Список и проверка SSH"
-                [FLEET_MENU_ADD]="Добавить сервер"
-                [FLEET_MENU_DEL]="Удалить сервер по номеру"
-                [FLEET_MENU_SHELL]="Интерактивная оболочка SSH (exit — назад в меню)"
-                [FLEET_MENU_SERVER_ACTIONS]="Действия с сервером (сначала номер)"
-                [FLEET_MENU_REBOOT_ALL]="Перезагрузить ВСЕ серверы"
-                [FLEET_MENU_DIST_ALL]="dist-upgrade на ВСЕХ серверах"
-                [FLEET_MENU_PASS]="Сменить сохранённый SSH-пароль (только серверы с входом по паролю)"
-                [FLEET_MENU_PROMPT]="Выбор (0 = назад):"
-                [FLEET_PASS_STORAGE_WARN]="Пароли хранятся только в base64 на этой машине (${DIR_REMNAWAVE}fleet_servers, chmod 600), без шифрования. Root здесь может их прочитать."
-                [FLEET_PASS_ONLY_P]="У этого сервера не парольная авторизация (нужно поле auth \"p\")."
-                [FLEET_PASS_SET_NEW]="Задать новый сохранённый пароль"
-                [FLEET_PASS_CLEAR]="Удалить сохранённый пароль (спрашивать каждый раз)"
-                [FLEET_PASS_SUBPROMPT]="Действие (0 = отмена):"
-                [FLEET_PASS_NEW_PROMPT]="Новый SSH-пароль для этого сервера:"
-                [FLEET_PASS_UPDATED]="Сохранённый пароль обновлён."
-                [FLEET_PASS_CLEARED]="Сохранённый пароль удалён; при каждом SSH будет запрос."
-                [FLEET_PASS_NONEMPTY]="Пароль не может быть пустым."
-                [FLEET_ADD_SSH_PASS]="SSH-пароль (обязателен — сохраняется на панели для флота, в fleet_servers в base64):"
-                [FLEET_EMPTY]="В флоте нет серверов. Сначала добавьте."
-                [FLEET_ADD_NAME]="Метка сервера:"
-                [FLEET_ADD_USER]="Пользователь SSH (желательно root):"
-                [FLEET_ADD_HOST]="IP или hostname:"
-                [FLEET_ADD_PORT]="Порт SSH [22]:"
-                [FLEET_ADD_AUTH]="Авторизация: 1) ключ из vault (номер)  2) пароль (сохраняется на этой машине для флота)"
-                [FLEET_SAVED]="Сервер сохранён."
-                [FLEET_REMOVED]="Удалено."
-                [FLEET_PICK_NUM]="Номер сервера:"
-                [FLEET_SSH_FAIL]="SSH-команда для этого сервера не удалась."
-                [FLEET_SUB_BBR]="BBR + CAKE: статус / применить"
-                [FLEET_SUB_IPV6]="IPv6: статус / выкл. / вкл."
-                [FLEET_SUB_REBOOT]="Перезагрузка"
-                [FLEET_SUB_DIST]="apt-get dist-upgrade"
-                [FLEET_SUB_TG_BASE]="traffic-guard: блоклисты (установка)"
-                [FLEET_SUB_TG_FULL]="traffic-guard: полные правила блоклистов"
-                [FLEET_SUB_SHAPER]="Лимит скорости по портам (на каждый IP клиента, nftables)"
-                [FLEET_SUB_PROMPT]="Действие (0 = назад):"
-                [FLEET_SHAPER_TITLE]="Шейпер скорости по портам (на каждый IP)"
-                [FLEET_SHAPER_EXPLAIN]="Только TCP. На каждый IP клиента свой счётчик: скачивание — исходящий с сервера трафик с tcp sport = порт; отдача — входящий на сервер с tcp dport = порт. Таблица inet remna_shaper. Конфликты с другими nft; для нод в host network."
-                [FLEET_SHAPER_BAD_PORTS]="Нет корректных TCP-портов (1–65535)."
-                [FLEET_SHAPER_1]="Показать текущие правила"
-                [FLEET_SHAPER_2]="Применить / заменить лимиты"
-                [FLEET_SHAPER_3]="Удалить таблицу remna_shaper"
-                [FLEET_SHAPER_PORTS]="TCP-порты через запятую (напр. 2222,443):"
-                [FLEET_SHAPER_DOWN]="Лимит скачивания на один IP клиента (Мбит/с, 0 = не ограничивать ответ сервера):"
-                [FLEET_SHAPER_UP]="Лимит отдачи на один IP клиента (Мбит/с, 0 = не ограничивать вход с клиента):"
-                [FLEET_SHAPER_CONFIRM]="Применить эти лимиты на ЭТОМ сервере? (y/n):"
-                [FLEET_SHAPER_NONE]="(не настроено)"
-                [FLEET_SHAPER_NEED_RATE]="Задайте лимит скачивания и/или отдачи больше 0 Мбит/с."
-                [FLEET_REBOOT_ALL_WARN]="Перезагрузить ВСЕ серверы флота? (y/n):"
-                [FLEET_DIST_ALL_WARN]="Запустить dist-upgrade на ВСЕХ серверах? (y/n):"
-                [FLEET_SHELL_HINT]="Удалённая оболочка — введите exit или Ctrl+D для возврата в меню."
-                [FLEET_APPLY_BBR_CONFIRM]="Применить BBR + CAKE на этом сервере? (y/n):"
-                [FLEET_BBR_ALREADY]="BBR + CAKE уже включены (tcp=bbr, default_qdisc содержит cake)."
-                [FLEET_BBR_REAPPLY_YN]="Всё равно перезаписать sysctl (BBR + CAKE)? (y/n):"
-                [FLEET_IPV6_STATE_LINE]="net.ipv6.conf.all.disable_ipv6=%s (1 = IPv6 выкл., 0 = вкл.)"
-                [FLEET_IPV6_OFF_HINT]="Сейчас IPv6 выключен. Ниже можно только включить обратно."
-                [FLEET_IPV6_ON_HINT]="Сейчас IPv6 включён. Ниже можно только выключить."
-                [FLEET_IPV6_ENABLE_YN]="Включить IPv6 на этом сервере? (y/n):"
-                [FLEET_IPV6_DISABLE_YN]="Выключить IPv6 на этом сервере? (y/n):"
-                [FLEET_IPV6_FALLBACK]="Не удалось прочитать состояние. 1) выкл. IPv6  2) вкл.  0) отмена:"
-                [FLEET_IPV6_SUB]="IPv6: 1 = выключить, 2 = включить:"
-                [FLEET_REBOOT_ONE]="Перезагрузить этот сервер? (y/n):"
                 #Manage IPv6
                 [IPV6_MENU_TITLE]="Управление IPv6"
                 [IPV6_ENABLE]="Включить IPv6"
@@ -1691,7 +1562,6 @@ show_menu() {
     echo -e "${COLOR_YELLOW}6. ${LANG[MENU_6]}${COLOR_RESET}" # Manage certificates domain
     echo -e "${COLOR_YELLOW}7. ${LANG[MENU_7]}${COLOR_RESET}" # SSH keys
     echo -e "${COLOR_YELLOW}8. ${LANG[MENU_8]}${COLOR_RESET}" # Remove script
-    echo -e "${COLOR_YELLOW}9. ${LANG[MENU_9]}${COLOR_RESET}" # Fleet
     echo -e ""
     echo -e "${COLOR_YELLOW}0. ${LANG[EXIT]}${COLOR_RESET}"
     echo -e "${COLOR_YELLOW}- ${LANG[FAST_START]//remnawave_auto/${COLOR_GREEN}remnawave_auto${COLOR_RESET}}"
@@ -6160,7 +6030,7 @@ ssh_vault_append_key() {
 ssh_normalize_private_key_material() {
     local raw="$1"
     local out
-    out=$(printf '%s' "$raw" | tr -d '\r')
+    out=$(printf '%s' "$raw" | tr -d '\000\r')
     if [[ ${#out} -ge 3 ]]; then
         local a b c
         a=$(printf '%d' "'${out:0:1}")
@@ -6172,45 +6042,6 @@ ssh_normalize_private_key_material() {
     fi
     [[ -n "$out" && "$out" != *$'\n' ]] && out="${out}"$'\n'
     printf '%s' "$out"
-}
-
-# Prints OpenSSH private-key cipher name (e.g. none, aes256-ctr) to stdout; exit 0 only if blob parses as openssh-key-v1
-ssh_openssh_cipher_from_file() {
-    local f="$1"
-    command -v python3 >/dev/null 2>&1 || return 1
-    python3 - "$f" <<'PY' 2>/dev/null || return 1
-import base64, re, struct, sys
-
-path = sys.argv[1]
-with open(path, "rb") as fp:
-    text = fp.read()
-text = text.replace(b"\r\n", b"\n").replace(b"\r", b"\n")
-if text.startswith(b"\xef\xbb\xbf"):
-    text = text[3:]
-m = re.search(
-    br"-----BEGIN OPENSSH PRIVATE KEY-----\s*(.+?)\s*-----END OPENSSH PRIVATE KEY-----",
-    text,
-    re.DOTALL,
-)
-if not m:
-    sys.exit(2)
-b64 = re.sub(br"\s+", b"", m.group(1))
-try:
-    raw = base64.b64decode(b64)
-except Exception:
-    sys.exit(3)
-if not raw.startswith(b"openssh-key-v1\x00"):
-    sys.exit(4)
-i = 16
-if len(raw) < i + 4:
-    sys.exit(5)
-(l,) = struct.unpack(">I", raw[i : i + 4])
-i += 4
-if l < 0 or l > 4096 or len(raw) < i + l:
-    sys.exit(6)
-cipher = raw[i : i + l].decode("ascii", errors="replace")
-sys.stdout.write(cipher)
-PY
 }
 
 # Public-key fingerprint (SHA256:...) from PEM material; stdout only on success
@@ -6351,17 +6182,6 @@ ssh_privkey_validate_stdout() {
     kg_err=$(mktemp)
     chmod 600 "$tf" "$kg_err"
     printf '%s' "$pem" > "$tf"
-
-    if grep -q 'BEGIN OPENSSH PRIVATE KEY' <<<"$pem"; then
-        local osc
-        if osc=$(ssh_openssh_cipher_from_file "$tf"); then
-            if [[ -n "$osc" && "$osc" != "none" ]]; then
-                echo -e "${COLOR_RED}${LANG[SSH_ERR_ENCRYPTED]}${COLOR_RESET}" >&2
-                rm -f "$kg_err" "$tf"
-                return 1
-            fi
-        fi
-    fi
 
     if ! ssh-keygen -y -f "$tf" </dev/null >/dev/null 2>"$kg_err"; then
         echo -e "${COLOR_RED}${LANG[SSH_ERR_KEYGEN_REJECT]}${COLOR_RESET}" >&2
@@ -6569,241 +6389,6 @@ ssh_vault_rename_index() {
     chmod 600 "$SSH_VAULT_FILE"
 }
 
-ensure_fleet_file() {
-    mkdir -p "$DIR_REMNAWAVE"
-    [[ -f "$FLEET_SERVERS_FILE" ]] || : >"$FLEET_SERVERS_FILE"
-    chmod 600 "$FLEET_SERVERS_FILE" 2>/dev/null || true
-}
-
-fleet_nonblank_count() {
-    grep -cve '^[[:space:]]*$' "$FLEET_SERVERS_FILE" 2>/dev/null || echo 0
-}
-
-# Returns the Nth non-empty fleet row (same numbering as list / pick / remove — not raw file line number).
-fleet_get_line() {
-    local want="${1:-0}" idx=0
-    [[ "$want" =~ ^[0-9]+$ ]] && [[ "$want" -ge 1 ]] || return 1
-    [[ -f "$FLEET_SERVERS_FILE" ]] || return 1
-    while IFS= read -r line || [[ -n "$line" ]]; do
-        [[ -z "${line//[$' \t']/}" ]] && continue
-        idx=$((idx + 1))
-        if [[ "$idx" -eq "$want" ]]; then
-            printf '%s' "${line//$'\r'/}"
-            return 0
-        fi
-    done <"$FLEET_SERVERS_FILE"
-    return 1
-}
-
-# One-line base64 only (default GNU base64 wraps at 76 cols and would break the |field| format).
-fleet_password_to_b64() {
-    printf '%s' "$1" | base64 | tr -d '\n\r'
-}
-
-# Decodes optional 6th field (base64) when auth is p; stdout = plaintext password.
-fleet_get_saved_password_from_line() {
-    local line="${1//$'\r'/}" pw_b64 _auth
-    [[ -z "${line//[$' \t']/}" ]] && return 1
-    IFS='|' read -r _lbl _user _host _port _auth pw_b64 <<<"$line"
-    _auth="${_auth//$'\r'/}"
-    pw_b64="${pw_b64//$'\r'/}"
-    [[ "$_auth" == "p" ]] || return 1
-    [[ -n "${pw_b64//[$' \t\r\n']}" ]] || return 1
-    printf '%s' "$pw_b64" | base64 -d 2>/dev/null || return 1
-}
-
-fleet_ensure_sshpass_installed() {
-    command -v sshpass >/dev/null 2>&1 || {
-        echo -e "${COLOR_YELLOW}${LANG[AUTO_NODE_NEED_SSHPASS]}${COLOR_RESET}"
-        apt-get update -y && apt-get install -y sshpass || return 1
-    }
-    return 0
-}
-
-# want = 1-based index among non-empty lines; new_b64 empty clears stored password for p rows.
-fleet_set_password_b64_at_line() {
-    local want="$1" new_b64="$2" tmp
-    tmp=$(mktemp)
-    export FLEET_NB="$new_b64"
-    awk -F'|' -v OFS='|' -v want="$want" '
-        /^[[:space:]]*$/ { next }
-        {
-            idx++
-            if (idx != want) { print; next }
-            if (NF < 5) { print; next }
-            if ($5 != "p") { print; next }
-            if (ENVIRON["FLEET_NB"] == "") { print $1, $2, $3, $4, "p"; next }
-            { print $1, $2, $3, $4, "p", ENVIRON["FLEET_NB"]; next }
-        }
-    ' "$FLEET_SERVERS_FILE" >"$tmp" || {
-        rm -f "$tmp"
-        unset FLEET_NB
-        return 1
-    }
-    unset FLEET_NB
-    mv "$tmp" "$FLEET_SERVERS_FILE"
-    chmod 600 "$FLEET_SERVERS_FILE"
-}
-
-fleet_change_password_interactive() {
-    ensure_fleet_file
-    local tot m ch fpw b64 line auth
-    tot=$(fleet_nonblank_count)
-    [[ "${tot:-0}" -eq 0 ]] && {
-        echo -e "${COLOR_YELLOW}${LANG[FLEET_EMPTY]}${COLOR_RESET}"
-        return 0
-    }
-    echo -e "${COLOR_GRAY}${LANG[FLEET_PASS_STORAGE_WARN]}${COLOR_RESET}"
-    reading "${LANG[FLEET_PICK_NUM]}" m
-    [[ "$m" =~ ^[0-9]+$ ]] && [[ "$m" -ge 1 ]] && [[ "$m" -le "$tot" ]] || return 1
-    line=$(fleet_get_line "$m")
-    line="${line//$'\r'/}"
-    IFS='|' read -r _a _b _c _d auth _rest <<<"$line"
-    auth="${auth//$'\r'/}"
-    [[ "$auth" == "p" ]] || {
-        echo -e "${COLOR_RED}${LANG[FLEET_PASS_ONLY_P]}${COLOR_RESET}"
-        return 1
-    }
-    echo -e "${COLOR_YELLOW}1.${COLOR_RESET} ${LANG[FLEET_PASS_SET_NEW]}"
-    echo -e "${COLOR_YELLOW}2.${COLOR_RESET} ${LANG[FLEET_PASS_CLEAR]}"
-    echo -e "${COLOR_YELLOW}0.${COLOR_RESET} ${LANG[EXIT]}"
-    reading "${LANG[FLEET_PASS_SUBPROMPT]}" ch
-    case "$ch" in
-        1)
-            reading_with_confirm "${LANG[FLEET_PASS_NEW_PROMPT]}" fpw secret ""
-            if [[ -z "${fpw// }" ]]; then
-                echo -e "${COLOR_RED}${LANG[FLEET_PASS_NONEMPTY]}${COLOR_RESET}"
-                return 1
-            fi
-            b64=$(fleet_password_to_b64 "$fpw")
-            fleet_set_password_b64_at_line "$m" "$b64"
-            echo -e "${COLOR_GREEN}${LANG[FLEET_PASS_UPDATED]}${COLOR_RESET}"
-            ;;
-        2)
-            fleet_set_password_b64_at_line "$m" ""
-            echo -e "${COLOR_GREEN}${LANG[FLEET_PASS_CLEARED]}${COLOR_RESET}"
-            ;;
-        0) return 0 ;;
-        *) echo -e "${COLOR_YELLOW}${LANG[INVALID_CHOICE]}${COLOR_RESET}" ;;
-    esac
-}
-
-# Run bash script on remote via stdin. Uses SSH vault key k:N or password (p).
-fleet_run_ssh_script() {
-    local line_num="$1"
-    local script="$2"
-    local line _lbl _user _host _port _auth
-    line=$(fleet_get_line "$line_num")
-    [[ -z "${line//[$' \t']/}" ]] && return 1
-    line="${line//$'\r'/}"
-    IFS='|' read -r _lbl _user _host _port _auth _pw_b64 <<<"$line"
-    _auth="${_auth//$'\r'/}"
-    _user="${_user//$'\r'/}"
-    _host="${_host//$'\r'/}"
-    _port="${_port//$'\r'/}"
-    [[ -z "$_user" || -z "$_host" ]] && return 1
-    [[ -z "$_port" ]] && _port=22
-    local -a base=(ssh -p "$_port" -o ConnectTimeout=25 -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile="${DIR_REMNAWAVE}fleet_known_hosts")
-    local kf="" ec=0
-    if [[ "$_auth" == "p" ]]; then
-        fleet_ensure_sshpass_installed || return 1
-        base+=( -o BatchMode=yes )
-        local pw=""
-        if ! pw=$(fleet_get_saved_password_from_line "$line"); then
-            question "${LANG[AUTO_NODE_SSH_PASS]}"
-            read -rs pw || return 1
-            echo
-        fi
-        sshpass -p "$pw" "${base[@]}" "${_user}@${_host}" bash -s <<<"$script" || ec=$?
-    elif [[ "$_auth" == k:* ]]; then
-        base+=( -o BatchMode=yes )
-        local ki="${_auth#k:}"
-        kf=$(ssh_vault_write_temp_key "$ki") || return 1
-        ssh -i "$kf" "${base[@]}" "${_user}@${_host}" bash -s <<<"$script" || ec=$?
-        rm -f "$kf"
-    else
-        echo -e "${COLOR_RED}${LANG[FLEET_SSH_FAIL]}${COLOR_RESET}"
-        return 1
-    fi
-    return "$ec"
-}
-
-# Same SSH as fleet_run_ssh_script but capture stdout (for parsing sysctl etc.). Password asked once if needed.
-fleet_run_ssh_stdout() {
-    local line_num="$1"
-    local script="$2"
-    local line _lbl _user _host _port _auth
-    line=$(fleet_get_line "$line_num")
-    [[ -z "${line//[$' \t']/}" ]] && return 1
-    line="${line//$'\r'/}"
-    IFS='|' read -r _lbl _user _host _port _auth _pw_b64 <<<"$line"
-    _auth="${_auth//$'\r'/}"
-    _user="${_user//$'\r'/}"
-    _host="${_host//$'\r'/}"
-    _port="${_port//$'\r'/}"
-    [[ -z "$_user" || -z "$_host" ]] && return 1
-    [[ -z "$_port" ]] && _port=22
-    local -a base=(ssh -p "$_port" -o ConnectTimeout=25 -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile="${DIR_REMNAWAVE}fleet_known_hosts")
-    local out="" ec=0 kf=""
-    if [[ "$_auth" == "p" ]]; then
-        fleet_ensure_sshpass_installed || return 1
-        base+=( -o BatchMode=yes )
-        local pw=""
-        if ! pw=$(fleet_get_saved_password_from_line "$line"); then
-            question "${LANG[AUTO_NODE_SSH_PASS]}"
-            read -rs pw || return 1
-            echo
-        fi
-        out=$(sshpass -p "$pw" "${base[@]}" "${_user}@${_host}" bash -s <<<"$script" 2>/dev/null) || ec=$?
-    elif [[ "$_auth" == k:* ]]; then
-        base+=( -o BatchMode=yes )
-        kf=$(ssh_vault_write_temp_key "${_auth#k:}") || return 1
-        out=$(ssh -i "$kf" "${base[@]}" "${_user}@${_host}" bash -s <<<"$script" 2>/dev/null) || ec=$?
-        rm -f "$kf"
-    else
-        return 1
-    fi
-    printf '%s' "$out"
-    return "$ec"
-}
-
-fleet_run_ssh_tty() {
-    local line_num="$1"
-    local line _lbl _user _host _port _auth
-    line=$(fleet_get_line "$line_num")
-    [[ -z "${line//[$' \t']/}" ]] && return 1
-    line="${line//$'\r'/}"
-    IFS='|' read -r _lbl _user _host _port _auth _pw_b64 <<<"$line"
-    _auth="${_auth//$'\r'/}"
-    _user="${_user//$'\r'/}"
-    _host="${_host//$'\r'/}"
-    _port="${_port//$'\r'/}"
-    [[ -z "$_user" || -z "$_host" ]] && return 1
-    [[ -z "$_port" ]] && _port=22
-    local -a base=(ssh -tt -p "$_port" -o ConnectTimeout=25 -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile="${DIR_REMNAWAVE}fleet_known_hosts")
-    local kf=""
-    echo -e "${COLOR_GRAY}${LANG[FLEET_SHELL_HINT]}${COLOR_RESET}"
-    if [[ "$_auth" == "p" ]]; then
-        fleet_ensure_sshpass_installed || return 1
-        base+=( -o BatchMode=yes )
-        local pw=""
-        if ! pw=$(fleet_get_saved_password_from_line "$line"); then
-            question "${LANG[AUTO_NODE_SSH_PASS]}"
-            read -rs pw || return 1
-            echo
-        fi
-        sshpass -p "$pw" "${base[@]}" "${_user}@${_host}" bash -l || true
-    elif [[ "$_auth" == k:* ]]; then
-        local ki="${_auth#k:}"
-        kf=$(ssh_vault_write_temp_key "$ki") || return 1
-        ssh -i "$kf" "${base[@]}" "${_user}@${_host}" bash -l || true
-        rm -f "$kf"
-    else
-        return 1
-    fi
-    return 0
-}
-
 remote_show_net_tuning() {
     echo "tcp_congestion_control=$(sysctl -n net.ipv4.tcp_congestion_control 2>/dev/null)"
     echo "default_qdisc=$(sysctl -n net.core.default_qdisc 2>/dev/null)"
@@ -6824,332 +6409,6 @@ remote_traffic_guard_base() {
 remote_traffic_guard_full() {
     command -v traffic-guard >/dev/null 2>&1 || curl -fsSL https://raw.githubusercontent.com/tristondup2008-cmd/traffic-guard/master/install.sh | bash
     traffic-guard full -u https://raw.githubusercontent.com/tristondup2008-cmd/traffic-guard/refs/heads/master/antiscanner.list.txt -u https://raw.githubusercontent.com/tristondup2008-cmd/traffic-guard/refs/heads/master/government_networks.list.txt -u https://raw.githubusercontent.com/tristondup2008-cmd/traffic-guard/refs/heads/master/skipa.list.txt --enable-logging
-}
-
-fleet_list_and_ping() {
-    ensure_fleet_file
-    local n tot
-    tot=$(fleet_nonblank_count)
-    if [[ "${tot:-0}" -eq 0 ]]; then
-        echo -e "${COLOR_YELLOW}${LANG[FLEET_EMPTY]}${COLOR_RESET}"
-        return 0
-    fi
-    echo -e "${COLOR_YELLOW}${LANG[FLEET_MENU_LIST]}${COLOR_RESET}"
-    n=0
-    while IFS= read -r line; do
-        [[ -z "${line//[$' \t']/}" ]] && continue
-        n=$((n + 1))
-        IFS='|' read -r fl _ <<<"$line"
-        echo -e " ${COLOR_WHITE}$n.${COLOR_RESET} $fl"
-        if fleet_run_ssh_script "$n" "echo OK && uname -n" 2>/dev/null; then
-            echo -e "    ${COLOR_GREEN}SSH OK${COLOR_RESET}"
-        else
-            echo -e "    ${COLOR_RED}${LANG[FLEET_SSH_FAIL]}${COLOR_RESET}"
-        fi
-    done <"$FLEET_SERVERS_FILE"
-}
-
-fleet_add_interactive() {
-    ensure_fleet_file
-    local lbl user host port authc kidx kc
-    reading_with_confirm "${LANG[FLEET_ADD_NAME]}" lbl plain ""
-    reading_with_confirm "${LANG[FLEET_ADD_USER]}" user plain ""
-    reading_with_confirm "${LANG[FLEET_ADD_HOST]}" host plain ""
-    reading_with_confirm "${LANG[FLEET_ADD_PORT]}" port plain "${LANG[INPUT_EMPTY_MEANS_DEFAULT_PORT]}"
-    [[ -z "$port" ]] && port=22
-    echo -e "${COLOR_YELLOW}${LANG[FLEET_ADD_AUTH]}${COLOR_RESET}"
-    reading "${LANG[AUTO_NODE_SSH_AUTH_CHOICE]}" authc
-    if [[ "$authc" == "1" ]]; then
-        kc=$(ssh_vault_count)
-        if [[ "${kc:-0}" -eq 0 ]]; then
-            echo -e "${COLOR_RED}${LANG[AUTO_NODE_NO_KEYS_WAIT]}${COLOR_RESET}"
-            return 1
-        fi
-        ssh_vault_list_labels
-        reading_with_confirm "${LANG[AUTO_NODE_SELECT_KEY]}" kidx plain ""
-        authc="k:${kidx}"
-    elif [[ "$authc" == "2" ]]; then
-        authc="p"
-        local fpw fb64
-        while true; do
-            reading_with_confirm "${LANG[FLEET_ADD_SSH_PASS]}" fpw secret ""
-            if [[ -n "${fpw// }" ]]; then
-                break
-            fi
-            echo -e "${COLOR_RED}${LANG[FLEET_PASS_NONEMPTY]}${COLOR_RESET}"
-        done
-        fb64=$(fleet_password_to_b64 "$fpw")
-        printf '%s\n' "${lbl}|${user}|${host}|${port}|p|${fb64}" >>"$FLEET_SERVERS_FILE"
-        echo -e "${COLOR_GREEN}${LANG[FLEET_SAVED]}${COLOR_RESET}"
-        return 0
-    else
-        echo -e "${COLOR_RED}${LANG[INVALID_CHOICE]}${COLOR_RESET}"
-        return 1
-    fi
-    printf '%s\n' "${lbl}|${user}|${host}|${port}|${authc}" >>"$FLEET_SERVERS_FILE"
-    echo -e "${COLOR_GREEN}${LANG[FLEET_SAVED]}${COLOR_RESET}"
-}
-
-fleet_remove_interactive() {
-    ensure_fleet_file
-    local tot m tmp
-    tot=$(fleet_nonblank_count)
-    [[ "$tot" -eq 0 ]] && {
-        echo -e "${COLOR_YELLOW}${LANG[FLEET_EMPTY]}${COLOR_RESET}"
-        return 0
-    }
-    reading "${LANG[FLEET_PICK_NUM]}" m
-    [[ "$m" =~ ^[0-9]+$ ]] && [[ "$m" -ge 1 ]] && [[ "$m" -le "$tot" ]] || return 1
-    tmp=$(mktemp)
-    local i=0
-    while IFS= read -r line; do
-        [[ -z "${line//[$' \t']/}" ]] && continue
-        i=$((i + 1))
-        [[ "$i" -eq "$m" ]] && continue
-        printf '%s\n' "$line" >>"$tmp"
-    done <"$FLEET_SERVERS_FILE"
-    mv "$tmp" "$FLEET_SERVERS_FILE"
-    chmod 600 "$FLEET_SERVERS_FILE"
-    echo -e "${COLOR_GREEN}${LANG[FLEET_REMOVED]}${COLOR_RESET}"
-}
-
-# Remote script: nftables per–client-IP rate limit on TCP ports (IPv4 + IPv6).
-remna_build_nft_port_shaper_script() {
-    local ports_csv="$1"
-    local down_mbit="${2:-0}"
-    local up_mbit="${3:-0}"
-    printf '%s\n' 'set -e' 'export DEBIAN_FRONTEND=noninteractive'
-    printf '%s\n' 'if ! command -v nft >/dev/null 2>&1; then apt-get update -y && apt-get install -y nftables; fi'
-    printf '%s\n' 'nft delete table inet remna_shaper 2>/dev/null || true'
-    printf '%s\n' 'nft add table inet remna_shaper'
-    printf '%s\n' 'nft add chain inet remna_shaper post { type filter hook postrouting priority 50\; policy accept\; }'
-    printf '%s\n' 'nft add chain inet remna_shaper pre { type filter hook prerouting priority -150\; policy accept\; }'
-    local p
-    IFS=',' read -ra pa <<< "$ports_csv"
-    for p in "${pa[@]}"; do
-        p="${p// /}"
-        [[ "$p" =~ ^[0-9]+$ ]] || continue
-        ((p >= 1 && p <= 65535)) || continue
-        if [[ "$down_mbit" =~ ^[0-9]+$ ]] && ((down_mbit > 0)); then
-            printf '%s\n' "nft add rule inet remna_shaper post meta nfproto ipv4 tcp sport ${p} meter m_dl4_${p} { ip daddr limit rate over ${down_mbit} mbit/second } drop"
-            printf '%s\n' "nft add rule inet remna_shaper post meta nfproto ipv6 tcp sport ${p} meter m_dl6_${p} { ip6 daddr limit rate over ${down_mbit} mbit/second } drop"
-        fi
-    done
-    for p in "${pa[@]}"; do
-        p="${p// /}"
-        [[ "$p" =~ ^[0-9]+$ ]] || continue
-        ((p >= 1 && p <= 65535)) || continue
-        if [[ "$up_mbit" =~ ^[0-9]+$ ]] && ((up_mbit > 0)); then
-            printf '%s\n' "nft add rule inet remna_shaper pre meta nfproto ipv4 tcp dport ${p} meter m_ul4_${p} { ip saddr limit rate over ${up_mbit} mbit/second } drop"
-            printf '%s\n' "nft add rule inet remna_shaper pre meta nfproto ipv6 tcp dport ${p} meter m_ul6_${p} { ip6 saddr limit rate over ${up_mbit} mbit/second } drop"
-        fi
-    done
-    printf '%s\n' 'echo --- inet remna_shaper ---' 'nft list table inet remna_shaper'
-}
-
-fleet_port_shaper_menu() {
-    local sn="$1"
-    local so pc dm um cf
-    while true; do
-        maybe_reexec_installed_script_if_disk_newer
-        echo -e "${COLOR_GREEN}${LANG[FLEET_SHAPER_TITLE]}${COLOR_RESET}"
-        echo -e "${COLOR_GRAY}${LANG[FLEET_SHAPER_EXPLAIN]}${COLOR_RESET}"
-        echo -e "${COLOR_YELLOW}1.${COLOR_RESET} ${LANG[FLEET_SHAPER_1]}"
-        echo -e "${COLOR_YELLOW}2.${COLOR_RESET} ${LANG[FLEET_SHAPER_2]}"
-        echo -e "${COLOR_YELLOW}3.${COLOR_RESET} ${LANG[FLEET_SHAPER_3]}"
-        echo -e "${COLOR_YELLOW}0.${COLOR_RESET} ${LANG[EXIT]}"
-        reading "${LANG[FLEET_SUB_PROMPT]}" so
-        case "$so" in
-            0) return 0 ;;
-            1)
-                fleet_run_ssh_script "$sn" "nft list table inet remna_shaper 2>/dev/null || echo '(not configured)'" || echo -e "${COLOR_RED}${LANG[FLEET_SSH_FAIL]}${COLOR_RESET}"
-                ;;
-            2)
-                reading "${LANG[FLEET_SHAPER_PORTS]}" pc
-                local vc=0
-                IFS=',' read -ra _pp <<< "$pc"
-                for _p in "${_pp[@]}"; do
-                    _p="${_p// /}"
-                    [[ "$_p" =~ ^[0-9]+$ ]] && ((_p >= 1 && _p <= 65535)) && vc=$((vc + 1))
-                done
-                unset _p _pp
-                if [[ "$vc" -eq 0 ]]; then
-                    echo -e "${COLOR_RED}${LANG[FLEET_SHAPER_BAD_PORTS]}${COLOR_RESET}"
-                    continue
-                fi
-                reading "${LANG[FLEET_SHAPER_DOWN]}" dm
-                reading "${LANG[FLEET_SHAPER_UP]}" um
-                [[ "$dm" =~ ^[0-9]+$ ]] || dm=0
-                [[ "$um" =~ ^[0-9]+$ ]] || um=0
-                if ((dm == 0 && um == 0)); then
-                    echo -e "${COLOR_YELLOW}${LANG[FLEET_SHAPER_NEED_RATE]}${COLOR_RESET}"
-                    continue
-                fi
-                reading "${LANG[FLEET_SHAPER_CONFIRM]}" cf
-                [[ "$cf" == "y" || "$cf" == "Y" ]] || continue
-                fleet_run_ssh_script "$sn" "$(remna_build_nft_port_shaper_script "$pc" "$dm" "$um")" ||
-                    echo -e "${COLOR_RED}${LANG[FLEET_SSH_FAIL]}${COLOR_RESET}"
-                ;;
-            3)
-                fleet_run_ssh_script "$sn" "nft delete table inet remna_shaper 2>/dev/null && echo removed || echo none" || true
-                ;;
-            *) echo -e "${COLOR_YELLOW}${LANG[INVALID_CHOICE]}${COLOR_RESET}" ;;
-        esac
-    done
-}
-
-fleet_submenu_server() {
-    local sn="$1"
-    local ch rb ipv ap
-    while true; do
-        maybe_reexec_installed_script_if_disk_newer
-        echo -e "${COLOR_GREEN}${LANG[FLEET_MENU_SERVER_ACTIONS]}${COLOR_RESET}"
-        echo -e "${COLOR_YELLOW}1.${COLOR_RESET} ${LANG[FLEET_SUB_BBR]}"
-        echo -e "${COLOR_YELLOW}2.${COLOR_RESET} ${LANG[FLEET_SUB_IPV6]}"
-        echo -e "${COLOR_YELLOW}3.${COLOR_RESET} ${LANG[FLEET_SUB_REBOOT]}"
-        echo -e "${COLOR_YELLOW}4.${COLOR_RESET} ${LANG[FLEET_SUB_DIST]}"
-        echo -e "${COLOR_YELLOW}5.${COLOR_RESET} ${LANG[FLEET_SUB_TG_BASE]}"
-        echo -e "${COLOR_YELLOW}6.${COLOR_RESET} ${LANG[FLEET_SUB_TG_FULL]}"
-        echo -e "${COLOR_YELLOW}7.${COLOR_RESET} ${LANG[FLEET_SUB_SHAPER]}"
-        echo -e "${COLOR_YELLOW}0.${COLOR_RESET} ${LANG[EXIT]}"
-        reading "${LANG[FLEET_SUB_PROMPT]}" ch
-        case "$ch" in
-            0) return 0 ;;
-            1)
-                local bout cc qd ap
-                bout=$(fleet_run_ssh_stdout "$sn" "$(declare -f remote_show_net_tuning; echo remote_show_net_tuning)") || {
-                    echo -e "${COLOR_RED}${LANG[FLEET_SSH_FAIL]}${COLOR_RESET}"
-                    bout=""
-                }
-                if [[ -n "$bout" ]]; then
-                    echo "$bout"
-                    cc=$(echo "$bout" | sed -n 's/^tcp_congestion_control=//p' | head -1 | tr -d '\r')
-                    qd=$(echo "$bout" | sed -n 's/^default_qdisc=//p' | head -1 | tr -d '\r')
-                    if [[ "$cc" == "bbr" && "$qd" == *cake* ]]; then
-                        echo -e "${COLOR_GREEN}${LANG[FLEET_BBR_ALREADY]}${COLOR_RESET}"
-                        reading "${LANG[FLEET_BBR_REAPPLY_YN]}" ap
-                    else
-                        reading "${LANG[FLEET_APPLY_BBR_CONFIRM]}" ap
-                    fi
-                    if [[ "$ap" == "y" || "$ap" == "Y" ]]; then
-                        fleet_run_ssh_script "$sn" "$(declare -f remote_show_net_tuning remote_apply_bbr_cake; echo remote_apply_bbr_cake)" || echo -e "${COLOR_RED}${LANG[FLEET_SSH_FAIL]}${COLOR_RESET}"
-                    fi
-                fi
-                ;;
-            2)
-                local v6 ipv
-                v6=$(fleet_run_ssh_stdout "$sn" "sysctl -n net.ipv6.conf.all.disable_ipv6 2>/dev/null") || v6=""
-                v6="${v6//[$' \t\r\n']/}"
-                printf "${COLOR_WHITE}${LANG[FLEET_IPV6_STATE_LINE]}${COLOR_RESET}\n" "${v6:-?}"
-                if [[ "$v6" == "1" ]]; then
-                    echo -e "${COLOR_GRAY}${LANG[FLEET_IPV6_OFF_HINT]}${COLOR_RESET}"
-                    reading "${LANG[FLEET_IPV6_ENABLE_YN]}" ipv
-                    if [[ "$ipv" == "y" || "$ipv" == "Y" ]]; then
-                        fleet_run_ssh_script "$sn" "$(declare -f remote_enable_ipv6; echo remote_enable_ipv6)" || echo -e "${COLOR_RED}${LANG[FLEET_SSH_FAIL]}${COLOR_RESET}"
-                    fi
-                elif [[ "$v6" == "0" ]]; then
-                    echo -e "${COLOR_GRAY}${LANG[FLEET_IPV6_ON_HINT]}${COLOR_RESET}"
-                    reading "${LANG[FLEET_IPV6_DISABLE_YN]}" ipv
-                    if [[ "$ipv" == "y" || "$ipv" == "Y" ]]; then
-                        fleet_run_ssh_script "$sn" "$(declare -f remote_disable_ipv6; echo remote_disable_ipv6)" || echo -e "${COLOR_RED}${LANG[FLEET_SSH_FAIL]}${COLOR_RESET}"
-                    fi
-                else
-                    echo -e "${COLOR_YELLOW}${LANG[FLEET_IPV6_FALLBACK]}${COLOR_RESET}"
-                    reading "${LANG[FLEET_IPV6_FALLBACK]}" ipv
-                    case "$ipv" in
-                        1) fleet_run_ssh_script "$sn" "$(declare -f remote_disable_ipv6; echo remote_disable_ipv6)" || echo -e "${COLOR_RED}${LANG[FLEET_SSH_FAIL]}${COLOR_RESET}" ;;
-                        2) fleet_run_ssh_script "$sn" "$(declare -f remote_enable_ipv6; echo remote_enable_ipv6)" || echo -e "${COLOR_RED}${LANG[FLEET_SSH_FAIL]}${COLOR_RESET}" ;;
-                    esac
-                fi
-                ;;
-            3)
-                reading "${LANG[FLEET_REBOOT_ONE]}" rb
-                [[ "$rb" == "y" || "$rb" == "Y" ]] && fleet_run_ssh_script "$sn" "nohup bash -c 'sleep 2; reboot' >/dev/null 2>&1 &" || true
-                ;;
-            4)
-                fleet_run_ssh_script "$sn" "$(printf '%s\n' 'export DEBIAN_FRONTEND=noninteractive' 'apt-get update -y' 'apt-get -y dist-upgrade')" ||
-                    echo -e "${COLOR_RED}${LANG[FLEET_SSH_FAIL]}${COLOR_RESET}"
-                ;;
-            5)
-                fleet_run_ssh_script "$sn" "$(declare -f remote_traffic_guard_base; echo remote_traffic_guard_base)" ||
-                    echo -e "${COLOR_RED}${LANG[FLEET_SSH_FAIL]}${COLOR_RESET}"
-                ;;
-            6)
-                fleet_run_ssh_script "$sn" "$(declare -f remote_traffic_guard_full; echo remote_traffic_guard_full)" ||
-                    echo -e "${COLOR_RED}${LANG[FLEET_SSH_FAIL]}${COLOR_RESET}"
-                ;;
-            7) fleet_port_shaper_menu "$sn" ;;
-            *) echo -e "${COLOR_YELLOW}${LANG[INVALID_CHOICE]}${COLOR_RESET}" ;;
-        esac
-    done
-}
-
-fleet_reboot_all() {
-    reading "${LANG[FLEET_REBOOT_ALL_WARN]}" c
-    [[ "$c" == "y" || "$c" == "Y" ]] || return 0
-    local tot i
-    tot=$(fleet_nonblank_count)
-    for ((i = 1; i <= tot; i++)); do
-        fleet_run_ssh_script "$i" "nohup bash -c 'sleep 2; reboot' >/dev/null 2>&1 &" || true
-    done
-}
-
-fleet_dist_all() {
-    reading "${LANG[FLEET_DIST_ALL_WARN]}" c
-    [[ "$c" == "y" || "$c" == "Y" ]] || return 0
-    local tot i
-    tot=$(fleet_nonblank_count)
-    for ((i = 1; i <= tot; i++)); do
-        fleet_run_ssh_script "$i" "$(printf '%s\n' 'export DEBIAN_FRONTEND=noninteractive' 'apt-get update -y' 'apt-get -y dist-upgrade')" || true
-    done
-}
-
-manage_fleet_menu() {
-    ensure_fleet_file
-    local opt tot sn
-    while true; do
-        maybe_reexec_installed_script_if_disk_newer
-        echo -e ""
-        echo -e "${COLOR_GREEN}${LANG[FLEET_MENU_TITLE]}${COLOR_RESET}"
-        echo -e "${COLOR_YELLOW}1.${COLOR_RESET} ${LANG[FLEET_MENU_LIST]}"
-        echo -e "${COLOR_YELLOW}2.${COLOR_RESET} ${LANG[FLEET_MENU_ADD]}"
-        echo -e "${COLOR_YELLOW}3.${COLOR_RESET} ${LANG[FLEET_MENU_DEL]}"
-        echo -e "${COLOR_YELLOW}4.${COLOR_RESET} ${LANG[FLEET_MENU_SHELL]}"
-        echo -e "${COLOR_YELLOW}5.${COLOR_RESET} ${LANG[FLEET_MENU_SERVER_ACTIONS]}"
-        echo -e "${COLOR_YELLOW}6.${COLOR_RESET} ${LANG[FLEET_MENU_REBOOT_ALL]}"
-        echo -e "${COLOR_YELLOW}7.${COLOR_RESET} ${LANG[FLEET_MENU_DIST_ALL]}"
-        echo -e "${COLOR_YELLOW}8.${COLOR_RESET} ${LANG[FLEET_MENU_PASS]}"
-        echo -e "${COLOR_YELLOW}0.${COLOR_RESET} ${LANG[EXIT]}"
-        reading "${LANG[FLEET_MENU_PROMPT]}" opt
-        case "$opt" in
-            0) return 0 ;;
-            1) fleet_list_and_ping || true ;;
-            2) fleet_add_interactive || true ;;
-            3) fleet_remove_interactive || true ;;
-            4)
-                tot=$(fleet_nonblank_count)
-                if [[ "$tot" -eq 0 ]]; then
-                    echo -e "${COLOR_YELLOW}${LANG[FLEET_EMPTY]}${COLOR_RESET}"
-                else
-                    reading "${LANG[FLEET_PICK_NUM]}" sn
-                    [[ "$sn" =~ ^[0-9]+$ ]] && [[ "$sn" -ge 1 ]] && [[ "$sn" -le "$tot" ]] && fleet_run_ssh_tty "$sn"
-                fi
-                ;;
-            5)
-                tot=$(fleet_nonblank_count)
-                if [[ "$tot" -eq 0 ]]; then
-                    echo -e "${COLOR_YELLOW}${LANG[FLEET_EMPTY]}${COLOR_RESET}"
-                else
-                    reading "${LANG[FLEET_PICK_NUM]}" sn
-                    [[ "$sn" =~ ^[0-9]+$ ]] && [[ "$sn" -ge 1 ]] && [[ "$sn" -le "$tot" ]] && fleet_submenu_server "$sn"
-                fi
-                ;;
-            6) fleet_reboot_all ;;
-            7) fleet_dist_all ;;
-            8) fleet_change_password_interactive || true ;;
-            *) echo -e "${COLOR_YELLOW}${LANG[INVALID_CHOICE]}${COLOR_RESET}" ;;
-        esac
-    done
 }
 
 manage_ssh_keys_menu() {
@@ -7461,6 +6720,7 @@ manage_auto_remote_node() {
     auto_ssh "ufw status verbose" || true
 
     if ! run_remote "disable IPv6" "$(declare -f remote_disable_ipv6; echo remote_disable_ipv6)"; then return 1; fi
+    if ! run_remote "${LANG[AUTO_NODE_REMOTE_BBR_DESC]}" "$(declare -f remote_show_net_tuning remote_apply_bbr_cake; echo remote_apply_bbr_cake)"; then return 1; fi
 
     if ! run_remote "Docker prerequisites" "$(declare -f remote_install_docker_prereqs; echo remote_install_docker_prereqs)"; then return 1; fi
 
@@ -7795,12 +7055,6 @@ case $OPTION in
         ;;
     8)
         remove_script
-        ;;
-    9)
-        manage_fleet_menu
-        sleep 2
-        log_clear
-        remnawave_auto
         ;;
     0)
         echo -e "${COLOR_YELLOW}${LANG[EXIT]}${COLOR_RESET}"
